@@ -339,7 +339,7 @@ public class StashBuildTrigger extends Trigger<AbstractProject<?, ?>> {
 
     @Override
     public boolean isApplicable(Item item) {
-      return true;
+      return item instanceof AbstractProject;
     }
 
     @Override
