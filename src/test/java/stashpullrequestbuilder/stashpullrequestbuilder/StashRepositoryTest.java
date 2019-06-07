@@ -8,20 +8,22 @@ import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import hudson.model.AbstractProject;
 import hudson.model.BooleanParameterDefinition;
 import hudson.model.FileParameterDefinition;
+import hudson.model.FreeStyleProject;
 import hudson.model.ParameterDefinition;
 import hudson.model.ParameterValue;
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
+import hudson.model.Queue;
 import hudson.model.StringParameterDefinition;
 import hudson.model.StringParameterValue;
 import java.util.Arrays;
@@ -34,7 +36,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -53,6 +54,7 @@ public class StashRepositoryTest {
   private StashRepository stashRepository;
 
   private StashCause cause;
+  private FreeStyleProject project;
   private StashPullRequestResponseValue pullRequest;
   private StashPullRequestResponseValueRepository repository;
   private StashPullRequestResponseValueRepositoryBranch branch;
@@ -60,7 +62,6 @@ public class StashRepositoryTest {
   private List<StashPullRequestResponseValue> pullRequestList;
 
   @Mock private StashBuildTrigger trigger;
-  @Mock private AbstractProject<?, ?> project;
   @Mock private StashApiClient stashApiClient;
   @Mock private ParametersDefinitionProperty parametersDefinitionProperty;
 
@@ -68,7 +69,8 @@ public class StashRepositoryTest {
   @Rule public MockitoRule rule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
   @Before
-  public void before() {
+  public void before() throws Exception {
+    project = spy(jenkinsRule.createFreeStyleProject());
     stashRepository = new StashRepository(project, trigger, stashApiClient);
 
     branch = new StashPullRequestResponseValueRepositoryBranch();
@@ -115,10 +117,12 @@ public class StashRepositoryTest {
   }
 
   private List<ParameterValue> captureBuildParameters() {
-    ArgumentCaptor<ParametersAction> captor = ArgumentCaptor.forClass(ParametersAction.class);
-    stashRepository.startJob(cause);
-    verify(project, times(1)).scheduleBuild2(anyInt(), eq(cause), captor.capture());
-    ParametersAction parametersAction = captor.getValue();
+    Queue.Item item = stashRepository.startJob(cause);
+    assertThat(item, is(notNullValue()));
+
+    ParametersAction parametersAction = item.getAction(ParametersAction.class);
+    assertThat(parametersAction, is(notNullValue()));
+
     return parametersAction.getAllParameters();
   }
 
