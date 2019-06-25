@@ -1,6 +1,24 @@
 1.10
 -----
- * Increase socket timeout to 30s #52
+ * findbugs-exclude.xml: Remove suppressions for StashBuildTrigger
+ * StashPostBuildComment: Don't override newInstance(), it's not needed
+ * Fix FindBugs warnings about StashBuildTrigger#job being null
+ * StashPostBuildComment: Remove redundant "implements"
+ * StashRepository: Use Java style array declaration
+ * StashBuildTriggerTest: Use varargs for parameter definitions
+ * StashApiClient: Remove all special treatment for UnsupportedEncodingException
+ * StashApiClient: Rename all variables for HTTP requests to "request"
+ * StashApiClient: Provide better descriptions for all timeouts
+ * StashApiClient: Remove useless casts and class prefixes
+ * StashApiClient: Annotate functions as @Nullable if they can return null
+ * StashRepository: Clean up comment sorting, add comments
+ * StashBuildEnvironmentContributor: Pass environment variables to pipelines (#96)
+ * Don't accept any new parameter names from pull request comments
+ * StashRepositoryTest: Don't mock pullRequest, repository and repoRepo
+ * StashRepositoryTest: Refactor creation of a pull request list
+ * StashRepositoryTest: Replace "CLOSED" with "MERGED"
+ * StashRepositoryTest: Remove verifications
+ * Increase socket timeout to 30s (#52)
 
 1.9
 -----
