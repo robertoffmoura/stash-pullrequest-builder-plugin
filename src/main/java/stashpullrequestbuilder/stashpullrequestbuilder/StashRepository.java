@@ -2,9 +2,10 @@ package stashpullrequestbuilder.stashpullrequestbuilder;
 
 import static java.lang.String.format;
 
-import hudson.model.AbstractProject;
 import hudson.model.Cause;
+import hudson.model.CauseAction;
 import hudson.model.Executor;
+import hudson.model.Job;
 import hudson.model.ParameterDefinition;
 import hudson.model.ParameterValue;
 import hudson.model.ParametersAction;
@@ -13,7 +14,6 @@ import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.StringParameterValue;
-import hudson.model.queue.QueueTaskFuture;
 import java.lang.invoke.MethodHandles;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
+import jenkins.model.ParameterizedJobMixIn;
 import org.apache.commons.lang.StringUtils;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashApiClient;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestComment;
@@ -60,19 +61,17 @@ public class StashRepository {
   private static final Pattern ADDITIONAL_PARAMETER_REGEX_PATTERN =
       Pattern.compile(ADDITIONAL_PARAMETER_REGEX);
 
-  private AbstractProject<?, ?> job;
+  private Job<?, ?> job;
   private StashBuildTrigger trigger;
   private StashApiClient client;
 
-  public StashRepository(@Nonnull AbstractProject<?, ?> job, @Nonnull StashBuildTrigger trigger) {
+  public StashRepository(@Nonnull Job<?, ?> job, @Nonnull StashBuildTrigger trigger) {
     this(job, trigger, null);
   }
 
   // For unit tests only
   StashRepository(
-      @Nonnull AbstractProject<?, ?> job,
-      @Nonnull StashBuildTrigger trigger,
-      StashApiClient client) {
+      @Nonnull Job<?, ?> job, @Nonnull StashBuildTrigger trigger, StashApiClient client) {
     this.job = job;
     this.trigger = trigger;
     this.client = client;
@@ -239,7 +238,7 @@ public class StashRepository {
     return values;
   }
 
-  public QueueTaskFuture<?> startJob(StashCause cause) {
+  public Queue.Item startJob(StashCause cause) {
     List<ParameterValue> values = getParameters(cause);
 
     if (trigger.isCancelOutdatedJobsEnabled()) {
@@ -247,7 +246,8 @@ public class StashRepository {
       abortRunningJobsThatMatch(cause);
     }
 
-    return job.scheduleBuild2(job.getQuietPeriod(), cause, new ParametersAction(values));
+    return ParameterizedJobMixIn.scheduleBuild2(
+        job, -1, new CauseAction(cause), new ParametersAction(values));
   }
 
   public void addFutureBuildTasks(Collection<StashPullRequestResponseValue> pullRequests) {
