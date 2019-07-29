@@ -26,7 +26,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.github.tomakehurst.wiremock.client.BasicCredentials;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.http.Fault;
@@ -42,7 +41,6 @@ import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashApiClient.Stas
 /*
  * Known issues:
  *
- * Some calls ignore HTTP errors, especially "malformed response"
  * deletePullRequestComment() gives no indication whether the call has succeeded
  * mergePullRequest() throws on 409 Conflict instead of returning false as apparently intended
  * There are no checks whether the HTTP code indicates an error for the specific request
@@ -204,8 +202,8 @@ public class StashApiClientTest {
     stubFor(any(anyUrl()).willReturn(aResponse().withFault(Fault.MALFORMED_RESPONSE_CHUNK)));
 
     expectedException.expect(StashApiException.class);
-    expectedException.expectMessage(containsString("Cannot read list of pull requests"));
-    expectedException.expectCause(is(instanceOf(JsonParseException.class)));
+    expectedException.expectMessage(containsString("Exception in GET request"));
+    expectedException.expectCause(is(instanceOf(ExecutionException.class)));
 
     client.getPullRequests();
   }
@@ -266,8 +264,8 @@ public class StashApiClientTest {
     stubFor(any(anyUrl()).willReturn(aResponse().withFault(Fault.MALFORMED_RESPONSE_CHUNK)));
 
     expectedException.expect(StashApiException.class);
-    expectedException.expectMessage(containsString("cannot read comments for pull request"));
-    expectedException.expectCause(is(instanceOf(JsonParseException.class)));
+    expectedException.expectMessage(containsString("Exception in GET request"));
+    expectedException.expectCause(is(instanceOf(ExecutionException.class)));
 
     client.getPullRequestComments(projectName, repositoryName, pullRequestId);
   }
@@ -298,8 +296,12 @@ public class StashApiClientTest {
   }
 
   @Test
-  public void deletePullRequestComment_doesnt_throw_on_malformed_response() throws Exception {
+  public void deletePullRequestComment_throws_on_malformed_response() throws Exception {
     stubFor(any(anyUrl()).willReturn(aResponse().withFault(Fault.MALFORMED_RESPONSE_CHUNK)));
+
+    expectedException.expect(StashApiException.class);
+    expectedException.expectMessage(containsString("Exception in DELETE request"));
+    expectedException.expectCause(is(instanceOf(ExecutionException.class)));
 
     client.deletePullRequestComment(pullRequestId, commentId);
   }
@@ -362,8 +364,8 @@ public class StashApiClientTest {
     stubFor(any(anyUrl()).willReturn(aResponse().withFault(Fault.MALFORMED_RESPONSE_CHUNK)));
 
     expectedException.expect(StashApiException.class);
-    expectedException.expectMessage(containsString("Cannot parse reply after comment posting"));
-    expectedException.expectCause(is(instanceOf(JsonParseException.class)));
+    expectedException.expectMessage(containsString("Exception in POST request"));
+    expectedException.expectCause(is(instanceOf(ExecutionException.class)));
 
     client.postPullRequestComment(pullRequestId, "Some comment");
   }
@@ -407,8 +409,8 @@ public class StashApiClientTest {
     stubFor(any(anyUrl()).willReturn(aResponse().withFault(Fault.MALFORMED_RESPONSE_CHUNK)));
 
     expectedException.expect(StashApiException.class);
-    expectedException.expectMessage(containsString("Cannot parse merge status"));
-    expectedException.expectCause(is(instanceOf(JsonParseException.class)));
+    expectedException.expectMessage(containsString("Exception in GET request"));
+    expectedException.expectCause(is(instanceOf(ExecutionException.class)));
 
     client.getPullRequestMergeStatus(pullRequestId);
   }
@@ -473,8 +475,12 @@ public class StashApiClientTest {
   }
 
   @Test
-  public void mergePullRequest_doesnt_throw_on_malformed_response() throws Exception {
+  public void mergePullRequest_throws_on_malformed_response() throws Exception {
     stubFor(any(anyUrl()).willReturn(aResponse().withFault(Fault.MALFORMED_RESPONSE_CHUNK)));
+
+    expectedException.expect(StashApiException.class);
+    expectedException.expectMessage(containsString("Exception in POST request"));
+    expectedException.expectCause(is(instanceOf(ExecutionException.class)));
 
     client.mergePullRequest(pullRequestId, mergeVersion);
   }
