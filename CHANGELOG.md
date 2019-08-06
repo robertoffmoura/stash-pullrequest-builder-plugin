@@ -1,3 +1,11 @@
+1.12
+----
+ * Fix Jenkins not detecting bad pom.xml formatting
+ * Merge StashPullRequestsBuilder into StashRepository
+ * Update to Jackson2 API, use Jenkins Jackson2 API plugin
+ * Use Apache HttpComponents Client 4.x API Plugin
+ * Require Jenkins 2.60.3 instead of 2.60.1
+
 1.11
 -----
  * StashPullRequestComment: Rewrite Comparable interface implementation
