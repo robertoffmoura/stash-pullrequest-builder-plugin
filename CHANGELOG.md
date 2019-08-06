@@ -1,3 +1,35 @@
+1.11
+-----
+ * StashPullRequestComment: Rewrite Comparable interface implementation
+ * Enable optional support for Jenkins pipelines
+ * Depend on hamcrest, not on hamcrest-library
+ * StashBuildTrigger: Make field defaults match config.jelly
+ * StashBuildTrigger: Use @DataBoundSetter for advanced settings
+ * StashBuildTrigger: Rename StashBuildTriggerDescriptor to DescriptorImpl
+ * Clean up exception handling in StashApiClient
+ * StashApiClientTest: Add WireMock based tests for StashApiClient
+ * StashRepositoryTest: No need to stub getCiSkipPhrases() everywhere
+ * StashBuildTrigger: Remove all references to projectPath, it's not used
+ * StashBuildListener: Log error updating build description to the build output
+ * StashBuildTrigger: Use correct getter names for config.jelly fields
+ * StashPullRequestsBuilder: Fix compile error, "project" should be "job" now
+ * StashBuildListenerTest: Add test for onCompleted() with matching cause
+ * Replace AbstractProject and AbstractBuild with Job and Run (#107)
+ * StashRepository: Merge init() into the constructor
+ * StashRepository: Log stack trace when catching StashApiException
+ * Make project and repository name available everywhere in project configuration
+ * Use snake_case for unit test names
+ * Use allOf() matcher to check maps
+ * Use contains() matcher to check lists
+ * Move public members above private members
+ * Expand wildcard imports
+ * Fill parameter values from environment variables added by the plugin
+ * Add @Nonnull annotations, remove unnecessary null checks
+ * Fix handling of failures to fetch the PR list and the PR comments
+ * StashRepository: Implement in terms of Job, not AbstractProject
+ * Merge StashBuilds into StashBuildListener
+
+
 1.10
 -----
  * findbugs-exclude.xml: Remove suppressions for StashBuildTrigger
