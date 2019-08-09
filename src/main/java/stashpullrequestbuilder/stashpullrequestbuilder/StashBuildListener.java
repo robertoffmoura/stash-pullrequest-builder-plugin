@@ -79,7 +79,7 @@ public class StashBuildListener extends RunListener<Run<?, ?>> {
       buildLogger.println(
           format(
               "%s: cannot delete Build Start comment for pull request %s",
-              run.getParent().getDisplayName(), cause.getPullRequestId()));
+              run.getParent().getFullName(), cause.getPullRequestId()));
       e.printStackTrace(buildLogger);
     }
 

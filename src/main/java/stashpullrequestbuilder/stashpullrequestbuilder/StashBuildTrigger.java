@@ -272,7 +272,7 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
     }
 
     if (!job.isBuildable()) {
-      logger.fine(format("Job is not buildable, skipping build (%s).", job.getName()));
+      logger.fine(format("Job is not buildable, skipping build (%s).", job.getFullName()));
       return;
     }
 

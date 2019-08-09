@@ -98,7 +98,7 @@ public class StashRepository {
       pullRequests = client.getPullRequests();
     } catch (StashApiException e) {
       pollLog.log("Cannot fetch pull request list", e);
-      logger.log(Level.INFO, format("%s: cannot fetch pull request list", job.getName()), e);
+      logger.log(Level.INFO, format("%s: cannot fetch pull request list", job.getFullName()), e);
       return targetPullRequests;
     }
 
@@ -296,7 +296,7 @@ public class StashRepository {
             Level.INFO,
             format(
                 "%s: cannot read additional parameters for pull request %s, skipping",
-                job.getName(), pullRequest.getId()),
+                job.getFullName(), pullRequest.getId()),
             e);
         continue;
       }
@@ -313,7 +313,7 @@ public class StashRepository {
               Level.INFO,
               format(
                   "%s: cannot delete old \"BuildFinished\" comments for pull request %s",
-                  job.getName(), pullRequest),
+                  job.getFullName(), pullRequest),
               e);
         }
       }
@@ -336,7 +336,7 @@ public class StashRepository {
             Level.INFO,
             format(
                 "%s: cannot post Build Start comment for pull request %s, not building",
-                job.getName(), pullRequest.getId()),
+                job.getFullName(), pullRequest.getId()),
             e);
         continue;
       }
@@ -433,7 +433,7 @@ public class StashRepository {
           Level.WARNING,
           format(
               "%s: cannot post Build Finished comment for pull request %s",
-              job.getDisplayName(), pullRequestId),
+              job.getFullName(), pullRequestId),
           e);
     }
   }
@@ -559,7 +559,7 @@ public class StashRepository {
           Level.INFO,
           format(
               "%s: cannot determine if pull request %s can be merged, skipping",
-              job.getDisplayName(), pullRequest.getId()),
+              job.getFullName(), pullRequest.getId()),
           e);
       return false;
     }
@@ -586,7 +586,7 @@ public class StashRepository {
     try {
       comments = client.getPullRequestComments(owner, repositoryName, id);
     } catch (StashApiException e) {
-      logger.log(Level.INFO, format("%s: cannot read pull request comments", job.getName()), e);
+      logger.log(Level.INFO, format("%s: cannot read pull request comments", job.getFullName()), e);
       return false;
     }
 
