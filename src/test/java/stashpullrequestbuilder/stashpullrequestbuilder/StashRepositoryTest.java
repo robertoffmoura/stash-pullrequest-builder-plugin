@@ -223,7 +223,7 @@ public class StashRepositoryTest {
     when(stashApiClient.getPullRequests()).thenReturn(pullRequestList);
     when(trigger.getCiSkipPhrases()).thenReturn("NO TEST");
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
-    when(project.getDisplayName()).thenReturn("Pull Request Builder Project");
+    when(project.getFullName()).thenReturn("Pull Request Builder Project");
 
     assertThat(stashRepository.getTargetPullRequests(), empty());
   }
@@ -244,7 +244,7 @@ public class StashRepositoryTest {
     when(trigger.getCiSkipPhrases()).thenReturn("NO TEST");
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
-    when(project.getDisplayName()).thenReturn("Pull Request Builder Project");
+    when(project.getFullName()).thenReturn("Pull Request Builder Project");
 
     assertThat(stashRepository.getTargetPullRequests(), contains(pullRequest));
   }
@@ -367,7 +367,7 @@ public class StashRepositoryTest {
 
     when(trigger.getDeletePreviousBuildFinishComments()).thenReturn(true);
     when(trigger.getStashHost()).thenReturn("StashHost");
-    when(project.getDisplayName()).thenReturn("MyProject");
+    when(project.getFullName()).thenReturn("MyProject");
 
     pullRequest.setId("123");
     stashRepository.addFutureBuildTasks(pullRequestList);
@@ -392,7 +392,7 @@ public class StashRepositoryTest {
 
     when(trigger.getDeletePreviousBuildFinishComments()).thenReturn(true);
     when(trigger.getStashHost()).thenReturn("http://localhost/");
-    when(project.getDisplayName()).thenReturn("MyProject");
+    when(project.getFullName()).thenReturn("MyProject");
     doThrow(new StashApiException("Cannot Delete"))
         .when(stashApiClient)
         .deletePullRequestComment(any(), any());
