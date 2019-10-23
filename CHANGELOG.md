@@ -1,3 +1,29 @@
+1.14
+----
+ * [JENKINS-59833] Prevent unwanted folding of multiple queue tasks into one
+ * pom.xml: Use GitHub for plugin's documentation on plugins.jenkins.io
+ * Use job.getFullName() in logs, it's unique for every Item in Jenkins
+ * StashBuildTrigger: Don't throw NullPointerException unnecessarily
+ * Construct StashApiClient in StashBuildTrigger
+
+1.13
+----
+ * StashBuildTrigger: Fix exception if run() is called after stop()
+ * StashPostBuildCommentAction: Remove, it has been obsolete since version 1.9
+ * Remove template parameters that can be deduced
+ * pom.xml: Update fmt-maven-plugin to version 2.9
+ * Update Wiremock to version 2.24.0
+ * StashRepositoryTest: Use Collections.singletonList for a single element list
+ * Update to parent POM 3.48, add SpotBugs settings
+ * Add a "Polling Log" page as a link on the project page
+ * StashPullRequestActivity: Don't implement Comparable, it is not used
+ * StashRepository: Use StringUtils.containsIgnoreCase() and StringUtils.isEmpty()
+ * Remove repackaged EasySSLProtocolSocketFactory, it's not used anymore
+ * Update to Apache httpclient 4.5.x
+ * StashPullRequestResponseValueRepositoryBranch: Use lowercase "name" field
+ * StashApiClientTest: Add a test for parsing all pull request fields
+ * StashPullRequestComment: Use a method reference instead of a lambda
+
 1.12
 ----
  * Fix Jenkins not detecting bad pom.xml formatting
