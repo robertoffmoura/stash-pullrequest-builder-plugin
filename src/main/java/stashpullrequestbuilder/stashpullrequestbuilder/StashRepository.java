@@ -362,8 +362,11 @@ public class StashRepository {
       Queue.Item item = startJob(cause);
       if (item != null) {
         pollLog.log("Queued job for PR #{}", pullRequest.getId());
+        logger.info(format("%s: queued job for PR #%s", job.getFullName(), pullRequest.getId()));
       } else {
         pollLog.log("Failed to queue job for PR #{}", pullRequest.getId());
+        logger.warning(
+            format("%s: failed to queue job for PR #%s", job.getFullName(), pullRequest.getId()));
       }
     }
   }
@@ -647,9 +650,7 @@ public class StashRepository {
         break;
       }
     }
-    if (shouldBuild) {
-      logger.info("Building PR: " + pullRequest.getId());
-    }
+
     return shouldBuild;
   }
 
