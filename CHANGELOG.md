@@ -1,3 +1,24 @@
+1.15
+----
+ * Fix error handling when merging pull requests
+ * StashApiClient: Refactor and simplify HTTP response processing
+ * StashRepository: Improve logging when a job is queued
+ * StashBuildListener: Make logging in onStarted() more informative
+ * StashCause: Generate environment on demand, don't keep it
+ * Use assertThrows from JUnit 4.13 instead of ExpectedException
+ * StashRepository: Reduce nesting in isForTargetBranch()
+ * StashRepository: Log triggering decisions to the poll log only
+ * StashRepository: Log exceptions to the poll log and to the system log
+ * StashRepository: Take pollLog as a constructor argument
+ * StashPullRequestCommentTest: Don't check that compareTo(null) throws
+ * StashPullRequestResponseValueRepositoryRepository: Remove useless null check
+ * StashApiClient: Use Iterable instead of List as argument when possible
+ * StashRepository: Add Nullable annotations to functions that can return null
+ * StashApiClient: Remove unnecessary variables when returning a value
+ * StashApiClientTest: Fix tests on systems that listen to HTTP port 8080
+ * StashRepository: Only cancel queue items for the same job
+ * Use StringUtils.isEmpty() and StringUtils.isNotEmpty() where appropriate
+
 1.14
 ----
  * [JENKINS-59833] Prevent unwanted folding of multiple queue tasks into one
