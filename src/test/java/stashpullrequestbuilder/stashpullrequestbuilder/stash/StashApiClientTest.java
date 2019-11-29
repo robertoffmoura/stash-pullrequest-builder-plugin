@@ -32,8 +32,9 @@ import com.github.tomakehurst.wiremock.client.BasicCredentials;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import java.net.SocketException;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
+import org.apache.http.client.ClientProtocolException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -183,8 +184,11 @@ public class StashApiClientTest {
     assertThat(
         assertThrows(StashApiException.class, () -> client.getPullRequests()),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
-            hasProperty("message", containsString("Exception in GET request"))));
+            hasProperty("cause", is(nullValue())),
+            hasProperty(
+                "message",
+                containsString(
+                    "Didn't get a 200 response from Stash PR GET! Response; '404' with message; Not Found"))));
   }
 
   @Test
@@ -194,7 +198,7 @@ public class StashApiClientTest {
     assertThat(
         assertThrows(StashApiException.class, () -> client.getPullRequests()),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(ClientProtocolException.class))),
             hasProperty("message", containsString("Exception in GET request"))));
   }
 
@@ -205,7 +209,7 @@ public class StashApiClientTest {
     assertThat(
         assertThrows(StashApiException.class, () -> client.getPullRequests()),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(SocketException.class))),
             hasProperty("message", containsString("Exception in GET request"))));
   }
 
@@ -247,8 +251,11 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.getPullRequestComments(projectName, repositoryName, pullRequestId)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
-            hasProperty("message", containsString("Exception in GET request"))));
+            hasProperty("cause", is(nullValue())),
+            hasProperty(
+                "message",
+                containsString(
+                    "Didn't get a 200 response from Stash PR GET! Response; '404' with message; Not Found"))));
   }
 
   @Test
@@ -260,7 +267,7 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.getPullRequestComments(projectName, repositoryName, pullRequestId)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(ClientProtocolException.class))),
             hasProperty("message", containsString("Exception in GET request"))));
   }
 
@@ -273,7 +280,7 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.getPullRequestComments(projectName, repositoryName, pullRequestId)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(SocketException.class))),
             hasProperty("message", containsString("Exception in GET request"))));
   }
 
@@ -300,7 +307,7 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.deletePullRequestComment(pullRequestId, commentId)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(ClientProtocolException.class))),
             hasProperty("message", containsString("Exception in DELETE request"))));
   }
 
@@ -313,7 +320,7 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.deletePullRequestComment(pullRequestId, commentId)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(SocketException.class))),
             hasProperty("message", containsString("Exception in DELETE request"))));
   }
 
@@ -346,8 +353,8 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.postPullRequestComment(pullRequestId, "Some comment")),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
-            hasProperty("message", containsString("Exception in POST request"))));
+            hasProperty("cause", is(nullValue())),
+            hasProperty("message", containsString("No HTTP entity found in response"))));
   }
 
   @Test
@@ -359,8 +366,11 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.postPullRequestComment(pullRequestId, "Some comment")),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
-            hasProperty("message", containsString("Exception in POST request"))));
+            hasProperty("cause", is(nullValue())),
+            hasProperty(
+                "message",
+                containsString(
+                    "Didn't get a 200 response from Stash PR POST! Response; '404' with message; Not Found"))));
   }
 
   @Test
@@ -372,7 +382,7 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.postPullRequestComment(pullRequestId, "Some comment")),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(Exception.class))),
             hasProperty("message", containsString("Exception in POST request"))));
   }
 
@@ -385,7 +395,7 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.postPullRequestComment(pullRequestId, "Some comment")),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(SocketException.class))),
             hasProperty("message", containsString("Exception in POST request"))));
   }
 
@@ -409,8 +419,11 @@ public class StashApiClientTest {
         assertThrows(
             StashApiException.class, () -> client.getPullRequestMergeStatus(pullRequestId)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
-            hasProperty("message", containsString("Exception in GET request"))));
+            hasProperty("cause", is(nullValue())),
+            hasProperty(
+                "message",
+                containsString(
+                    "Didn't get a 200 response from Stash PR GET! Response; '404' with message; Not Found"))));
   }
 
   @Test
@@ -421,7 +434,7 @@ public class StashApiClientTest {
         assertThrows(
             StashApiException.class, () -> client.getPullRequestMergeStatus(pullRequestId)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(ClientProtocolException.class))),
             hasProperty("message", containsString("Exception in GET request"))));
   }
 
@@ -433,7 +446,7 @@ public class StashApiClientTest {
         assertThrows(
             StashApiException.class, () -> client.getPullRequestMergeStatus(pullRequestId)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(SocketException.class))),
             hasProperty("message", containsString("Exception in GET request"))));
   }
 
@@ -462,8 +475,8 @@ public class StashApiClientTest {
         assertThrows(
             StashApiException.class, () -> client.mergePullRequest(pullRequestId, mergeVersion)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
-            hasProperty("message", containsString("Exception in POST request"))));
+            hasProperty("cause", is(nullValue())),
+            hasProperty("message", containsString("No HTTP entity found in response"))));
   }
 
   @Test
@@ -483,8 +496,11 @@ public class StashApiClientTest {
         assertThrows(
             StashApiException.class, () -> client.mergePullRequest(pullRequestId, mergeVersion)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
-            hasProperty("message", containsString("Exception in POST request"))));
+            hasProperty("cause", is(nullValue())),
+            hasProperty(
+                "message",
+                containsString(
+                    "Didn't get a 200 response from Stash PR POST! Response; '404' with message; Not Found"))));
   }
 
   @Test
@@ -495,7 +511,7 @@ public class StashApiClientTest {
         assertThrows(
             StashApiException.class, () -> client.mergePullRequest(pullRequestId, mergeVersion)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(ClientProtocolException.class))),
             hasProperty("message", containsString("Exception in POST request"))));
   }
 
@@ -507,7 +523,7 @@ public class StashApiClientTest {
         assertThrows(
             StashApiException.class, () -> client.mergePullRequest(pullRequestId, mergeVersion)),
         allOf(
-            hasProperty("cause", is(instanceOf(ExecutionException.class))),
+            hasProperty("cause", is(instanceOf(SocketException.class))),
             hasProperty("message", containsString("Exception in POST request"))));
   }
 }
