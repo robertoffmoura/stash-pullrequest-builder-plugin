@@ -1,3 +1,20 @@
+1.16
+----
+ * StashApiClient: Use Optional.of() in mergePullRequest() (#175)
+ * StashRepository: Use sort() method of the List (#178)
+ * StashApiClient: Avoid unnecessary initialization (#177)
+ * StashPostBuildComment: Make getDisplayName() @Nonnull to match the superclass (#176)
+ * Enable more SpotBugs checks, ignore known issues (#164)
+ * Move static fields above instance fields (#172)
+ * Restrict unnecessarily permissive methods (#173)
+ * StashApiClient: Run HTTP requests in the main thread (#137)
+ * StashApiClient: Remove wrappers around mapper.readValue() (#171)
+ * AdditionalParameterRegExTest: Move one level up to match StashRepository (#168)
+ * Avoid Bitbucket autolinking to PRs from build numbers (#165)
+ * Convert instance fields to local variables when possible
+ * extensions.xml: Update git-changelist-maven-extension to version 1.1
+ * StashApiClient: Don't ever return null from entityAsString()
+
 1.15
 ----
  * Fix error handling when merging pull requests
