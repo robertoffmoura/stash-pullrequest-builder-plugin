@@ -149,11 +149,6 @@ Stash Pull Request Builder Plugin makes conversion to pipelines easier the users
 
 To use Stash Pull Request Builder Plugin from Jenkinsfile, make sure to define it in properties. Otherwise, the trigger will be disabled after the the job runs. To find the exact syntax, open the Pipeline Syntax link and select "properties" as the Sample Step. Set up the trigger in the GUI and click on "Generate Pipeline Script".
 
-## Copyright
-
-Copyright © 2015 Nathan McCarthy.
-
-
 ## License
 
 - BSD License
