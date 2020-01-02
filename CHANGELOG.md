@@ -1,3 +1,15 @@
+1.17
+----
+ * pom.xml: Update JUnit to version 4.13 (#183)
+ * Remove Copyright section from README
+ * pom:xml: Update parent POM to version 3.53 (#182)
+ * StashRepository: Remove PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS suppression
+ * StashRepository: Format timestamps using DateTimeFormatter
+ * StashBuildListener: Simplify code for calculating buildUrl (#179)
+ * StashApiClient: Process comments in getPullRequestComments() as they arrive (#174)
+ * StashApiClientTest: Use more verifications, check URL match (#180)
+
+
 1.16
 ----
  * StashApiClient: Use Optional.of() in mergePullRequest() (#175)
