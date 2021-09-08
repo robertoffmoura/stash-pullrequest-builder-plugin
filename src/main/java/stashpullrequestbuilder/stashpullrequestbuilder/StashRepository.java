@@ -697,6 +697,7 @@ public class StashRepository {
     long pollStartTime = System.currentTimeMillis();
     pollLog.resetLog();
     pollLog.log("{}: poll started", ZonedDateTime.now().format(TIMESTAMP_FORMATTER));
+    logger.fine(format("poll started for %s", job.getFullName()));
 
     Collection<StashPullRequestResponseValue> targetPullRequests = getTargetPullRequests();
     addFutureBuildTasks(targetPullRequests);
@@ -705,5 +706,9 @@ public class StashRepository {
         "{}: poll completed in {}",
         ZonedDateTime.now().format(TIMESTAMP_FORMATTER),
         Util.getTimeSpanString(System.currentTimeMillis() - pollStartTime));
+    logger.fine(
+        format(
+            "poll completed in %s for %s",
+            Util.getTimeSpanString(System.currentTimeMillis() - pollStartTime), job.getFullName()));
   }
 }
