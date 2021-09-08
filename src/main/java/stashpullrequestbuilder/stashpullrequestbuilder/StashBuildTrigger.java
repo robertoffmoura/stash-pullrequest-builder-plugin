@@ -291,7 +291,7 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
     }
 
     if (checkAlreadyQueued.compareAndSet(false, true)) {
-      logger.info(format("Job not queued, adding %s", job.getFullName()));
+      logger.fine(format("Job not queued, adding %s", job.getFullName()));
       descriptor
           .getExecutorService()
           .execute(
