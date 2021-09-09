@@ -339,7 +339,6 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
                       new DaemonThreadFactory(), "DescriptorImpl.DescriptorImpl")));
     }
 
-    // @Nonnull
     public ExecutorService getExecutorService() {
       return executorService;
     }
@@ -379,6 +378,7 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
     @Override
     public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
       enablePipelineSupport = false;
+
       req.bindJSON(this, json);
       save();
       logger.info(format("configuring numOfThreads to %s", numOfThreads));
