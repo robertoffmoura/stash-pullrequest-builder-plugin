@@ -299,7 +299,6 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
                 @Override
                 public void run() {
                   try {
-                    // stashPullRequestsBuilder.run();
                     stashRepository.pollRepository();
                   } finally {
                     checkAlreadyQueued.set(false);
@@ -307,10 +306,9 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
                 }
               });
     } else {
-      logger.info(format("Job is already queued, skipping %s", job.getFullName()));
+      logger.fine(format("Job is already queued, skipping %s", job.getFullName()));
     }
 
-    // stashRepository.pollRepository();
     getDescriptor().save();
   }
 
@@ -327,15 +325,18 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
     private final transient ExecutorService executorService;
 
     private boolean enablePipelineSupport;
+    private String numOfThreads = "10";
 
     public DescriptorImpl() {
+      load();
+      int intOfThreads = Integer.parseInt(numOfThreads);
+      logger.info(format("Creating pool size %s", numOfThreads));
       executorService =
           Executors.newFixedThreadPool(
-              2,
+              intOfThreads,
               new ExceptionCatchingThreadFactory(
                   new NamingThreadFactory(
                       new DaemonThreadFactory(), "DescriptorImpl.DescriptorImpl")));
-      load();
     }
 
     // @Nonnull
@@ -345,6 +346,15 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
 
     public boolean getEnablePipelineSupport() {
       return enablePipelineSupport;
+    }
+
+    public String getNumOfThreads() {
+      return numOfThreads;
+    }
+
+    @DataBoundSetter
+    public void setNumOfThreads(String numOfThreads) {
+      this.numOfThreads = numOfThreads;
     }
 
     @DataBoundSetter
@@ -369,9 +379,9 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
     @Override
     public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
       enablePipelineSupport = false;
-
       req.bindJSON(this, json);
       save();
+      logger.info(format("configuring numOfThreads to %s", numOfThreads));
       return super.configure(req, json);
     }
 
