@@ -154,7 +154,25 @@ public class StashApiClient {
   public StashPullRequestComment postPullRequestComment(String pullRequestId, String comment)
       throws StashApiException {
     String path = pullRequestPath(pullRequestId) + "/comments";
-    String response = postRequest(path, comment);
+    ObjectNode payload = mapper.getNodeFactory().objectNode();
+    payload.put("text", comment);
+    String response = postRequest(path, payload);
+    try {
+      return mapper.readValue(response, StashPullRequestComment.class);
+    } catch (IOException e) {
+      throw new StashApiException("Cannot parse reply after comment posting", e);
+    }
+  }
+
+  @Nullable
+  public StashPullRequestComment postPullRequestCommentReply(
+      String pullRequestId, String comment, Integer parentCommentId) throws StashApiException {
+    String path = pullRequestPath(pullRequestId) + "/comments";
+    ObjectNode payload = mapper.getNodeFactory().objectNode();
+    payload.put("text", comment);
+    ObjectNode parentValue = payload.putObject("parent");
+    parentValue.put("id", parentCommentId);
+    String response = postRequest(path, payload);
     try {
       return mapper.readValue(response, StashPullRequestComment.class);
     } catch (IOException e) {
@@ -291,8 +309,8 @@ public class StashApiClient {
   }
 
   @Nonnull
-  private String postRequest(String path, String comment) throws StashApiException {
-    logger.log(Level.FINEST, "PR-POST-REQUEST:" + path + " with: " + comment);
+  private String postRequest(String path, ObjectNode payload) throws StashApiException {
+    logger.log(Level.FINEST, "PR-POST-REQUEST:" + path + " with: " + payload);
     CloseableHttpClient client = getHttpClient();
 
     HttpPost request = new HttpPost(path);
@@ -302,12 +320,10 @@ public class StashApiClient {
     request.setHeader("Connection", "close");
     request.setHeader("X-Atlassian-Token", "no-check"); // xsrf
 
-    if (comment != null) {
-      ObjectNode node = mapper.getNodeFactory().objectNode();
-      node.put("text", comment);
+    if (payload != null) {
       try {
         StringEntity requestEntity =
-            new StringEntity(mapper.writeValueAsString(node), ContentType.APPLICATION_JSON);
+            new StringEntity(mapper.writeValueAsString(payload), ContentType.APPLICATION_JSON);
         request.setEntity(requestEntity);
       } catch (IOException e) {
         throw new StashApiException("Exception preparing POST request", e);
