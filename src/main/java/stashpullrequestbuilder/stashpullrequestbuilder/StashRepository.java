@@ -284,91 +284,95 @@ public class StashRepository {
 
   void addFutureBuildTasks(Collection<StashPullRequestResponseValue> pullRequests) {
     for (StashPullRequestResponseValue pullRequest : pullRequests) {
-      Map<String, String> additionalParameters;
+      addFutureBuildTasks(pullRequest);
+    }
+  }
 
-      // Get parameter values for the build from the pull request comments.
-      // Failure to do so causes the build to be skipped, as we would not run
-      // the build with incorrect parameters.
+  void addFutureBuildTasks(StashPullRequestResponseValue pullRequest) {
+    Map<String, String> additionalParameters;
+
+    // Get parameter values for the build from the pull request comments.
+    // Failure to do so causes the build to be skipped, as we would not run
+    // the build with incorrect parameters.
+    try {
+      additionalParameters = getAdditionalParameters(pullRequest);
+    } catch (StashApiException e) {
+      pollLog.log(
+          "Cannot read additional parameters for PR #{}, skipping", pullRequest.getId(), e);
+      logger.log(
+          Level.INFO,
+          format(
+              "%s: cannot read additional parameters for pull request %s, skipping",
+              job.getFullName(), pullRequest.getId()),
+          e);
+      return;
+    }
+
+    // Delete comments about previous build results, if that option is
+    // enabled. Run the build even if those comments cannot be deleted.
+    if (trigger.getDeletePreviousBuildFinishComments()) {
       try {
-        additionalParameters = getAdditionalParameters(pullRequest);
+        deletePreviousBuildFinishedComments(pullRequest);
       } catch (StashApiException e) {
         pollLog.log(
-            "Cannot read additional parameters for PR #{}, skipping", pullRequest.getId(), e);
+            "Cannot delete old \"BuildFinished\" comments for PR #{}", pullRequest.getId(), e);
         logger.log(
             Level.INFO,
             format(
-                "%s: cannot read additional parameters for pull request %s, skipping",
-                job.getFullName(), pullRequest.getId()),
+                "%s: cannot delete old \"BuildFinished\" comments for pull request %s",
+                job.getFullName(), pullRequest),
             e);
-        continue;
       }
+    }
 
-      // Delete comments about previous build results, if that option is
-      // enabled. Run the build even if those comments cannot be deleted.
-      if (trigger.getDeletePreviousBuildFinishComments()) {
-        try {
-          deletePreviousBuildFinishedComments(pullRequest);
-        } catch (StashApiException e) {
-          pollLog.log(
-              "Cannot delete old \"BuildFinished\" comments for PR #{}", pullRequest.getId(), e);
-          logger.log(
-              Level.INFO,
-              format(
-                  "%s: cannot delete old \"BuildFinished\" comments for pull request %s",
-                  job.getFullName(), pullRequest),
-              e);
-        }
-      }
+    // Post a comment indicating the build start. Strictly speaking, we are
+    // just adding the build to the queue, it will start after the quiet time
+    // expires and there are executors available. Failure to post the comment
+    // prevents the build for safety reasons. If the plugin cannot post this
+    // comment, chances are it won't be able to post the build results, which
+    // would trigger the build again and again, wasting Jenkins resources.
+    String commentId;
+    try {
+      commentId = postBuildStartCommentTo(pullRequest);
+    } catch (StashApiException e) {
+      pollLog.log(
+          "Cannot post \"BuildStarted\" comment for PR #{}, not building",
+          pullRequest.getId(),
+          e);
+      logger.log(
+          Level.INFO,
+          format(
+              "%s: cannot post Build Start comment for pull request %s, not building",
+              job.getFullName(), pullRequest.getId()),
+          e);
+      return;
+    }
 
-      // Post a comment indicating the build start. Strictly speaking, we are
-      // just adding the build to the queue, it will start after the quiet time
-      // expires and there are executors available. Failure to post the comment
-      // prevents the build for safety reasons. If the plugin cannot post this
-      // comment, chances are it won't be able to post the build results, which
-      // would trigger the build again and again, wasting Jenkins resources.
-      String commentId;
-      try {
-        commentId = postBuildStartCommentTo(pullRequest);
-      } catch (StashApiException e) {
-        pollLog.log(
-            "Cannot post \"BuildStarted\" comment for PR #{}, not building",
+    StashCause cause =
+        new StashCause(
+            trigger.getStashHost(),
+            pullRequest.getFromRef().getBranch().getName(),
+            pullRequest.getToRef().getBranch().getName(),
+            pullRequest.getFromRef().getRepository().getProjectName(),
+            pullRequest.getFromRef().getRepository().getRepositoryName(),
             pullRequest.getId(),
-            e);
-        logger.log(
-            Level.INFO,
-            format(
-                "%s: cannot post Build Start comment for pull request %s, not building",
-                job.getFullName(), pullRequest.getId()),
-            e);
-        continue;
-      }
+            pullRequest.getToRef().getRepository().getProjectName(),
+            pullRequest.getToRef().getRepository().getRepositoryName(),
+            pullRequest.getTitle(),
+            pullRequest.getFromRef().getLatestCommit(),
+            pullRequest.getToRef().getLatestCommit(),
+            commentId,
+            pullRequest.getVersion(),
+            additionalParameters);
 
-      StashCause cause =
-          new StashCause(
-              trigger.getStashHost(),
-              pullRequest.getFromRef().getBranch().getName(),
-              pullRequest.getToRef().getBranch().getName(),
-              pullRequest.getFromRef().getRepository().getProjectName(),
-              pullRequest.getFromRef().getRepository().getRepositoryName(),
-              pullRequest.getId(),
-              pullRequest.getToRef().getRepository().getProjectName(),
-              pullRequest.getToRef().getRepository().getRepositoryName(),
-              pullRequest.getTitle(),
-              pullRequest.getFromRef().getLatestCommit(),
-              pullRequest.getToRef().getLatestCommit(),
-              commentId,
-              pullRequest.getVersion(),
-              additionalParameters);
-
-      Queue.Item item = startJob(cause);
-      if (item != null) {
-        pollLog.log("Queued job for PR #{}", pullRequest.getId());
-        logger.info(format("%s: queued job for PR #%s", job.getFullName(), pullRequest.getId()));
-      } else {
-        pollLog.log("Failed to queue job for PR #{}", pullRequest.getId());
-        logger.warning(
-            format("%s: failed to queue job for PR #%s", job.getFullName(), pullRequest.getId()));
-      }
+    Queue.Item item = startJob(cause);
+    if (item != null) {
+      pollLog.log("Queued job for PR #{}", pullRequest.getId());
+      logger.info(format("%s: queued job for PR #%s", job.getFullName(), pullRequest.getId()));
+    } else {
+      pollLog.log("Failed to queue job for PR #{}", pullRequest.getId());
+      logger.warning(
+          format("%s: failed to queue job for PR #%s", job.getFullName(), pullRequest.getId()));
     }
   }
 
