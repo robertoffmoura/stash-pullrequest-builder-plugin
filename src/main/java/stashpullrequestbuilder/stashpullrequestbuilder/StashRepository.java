@@ -531,12 +531,9 @@ public class StashRepository {
   }
 
   private boolean isBuildTarget(StashPullRequestResponseValue pullRequest) {
-
     if (!"OPEN".equals(pullRequest.getState())) {
       return false;
     }
-
-    boolean shouldBuild = true;
 
     if (isSkipBuild(pullRequest.getTitle())) {
       pollLog.log("Not building PR #{}, its title contains the skip phrase", pullRequest.getId());
@@ -571,10 +568,6 @@ public class StashRepository {
     }
 
     boolean isOnlyBuildOnComment = trigger.getOnlyBuildOnComment();
-
-    if (isOnlyBuildOnComment) {
-      shouldBuild = false;
-    }
 
     String sourceCommit = pullRequest.getFromRef().getLatestCommit();
 
@@ -619,8 +612,7 @@ public class StashRepository {
         // in build only on comment, we should stop parsing comments as soon as a PR builder
         // comment is found.
         if (isOnlyBuildOnComment) {
-          assert !shouldBuild;
-          break;
+          return false;
         }
 
         String sourceCommitMatch;
@@ -642,23 +634,17 @@ public class StashRepository {
               && (!destinationCommitMatch.equalsIgnoreCase(destinationCommit))) {
             continue;
           }
-
-          shouldBuild = false;
-          break;
+          return false;
         }
       }
-
       if (isSkipBuild(content)) {
-        shouldBuild = false;
-        break;
+        return false;
       }
       if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
-        shouldBuild = true;
-        break;
+        return true;
       }
     }
-
-    return shouldBuild;
+    return !isOnlyBuildOnComment;
   }
 
   private boolean isForTargetBranch(StashPullRequestResponseValue pullRequest) {
