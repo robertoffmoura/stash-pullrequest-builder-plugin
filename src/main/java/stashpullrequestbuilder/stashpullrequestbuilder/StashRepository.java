@@ -160,34 +160,13 @@ public class StashRepository {
     return result;
   }
 
-  Map<String, String> getAdditionalParameters(StashPullRequestResponseValue pullRequest)
-      throws StashApiException {
-    StashPullRequestResponseValueRepository destination = pullRequest.getToRef();
-    String owner = destination.getRepository().getProjectName();
-    String repositoryName = destination.getRepository().getRepositoryName();
-
-    String id = pullRequest.getId();
-    List<StashPullRequestComment> comments =
-        client.getPullRequestComments(owner, repositoryName, id);
-
-    // Process newest comments last so they can override older comments
-    comments.sort(Comparator.naturalOrder());
-
-    Map<String, String> result = new TreeMap<>();
-
-    for (StashPullRequestComment comment : comments) {
-      String content = comment.getText();
-      if (StringUtils.isEmpty(content)) {
-        continue;
-      }
-
-      Map<String, String> parameters = getParametersFromContent(content);
-      for (Map.Entry<String, String> parameter : parameters.entrySet()) {
-        result.put(parameter.getKey(), parameter.getValue());
-      }
+  Map<String, String> getAdditionalParameters(StashPullRequestResponseValue pullRequest) {
+    StashPullRequestComment comment = pullRequest.getBuildCommandComment();
+    if (comment != null) {
+      return getParametersFromContent(comment.getText());
+    } else {
+      return new TreeMap<>();
     }
-
-    return result;
   }
 
   private boolean hasCauseFromTheSamePullRequest(
@@ -291,22 +270,7 @@ public class StashRepository {
   void addFutureBuildTasks(StashPullRequestResponseValue pullRequest) {
     Map<String, String> additionalParameters;
 
-    // Get parameter values for the build from the pull request comments.
-    // Failure to do so causes the build to be skipped, as we would not run
-    // the build with incorrect parameters.
-    try {
-      additionalParameters = getAdditionalParameters(pullRequest);
-    } catch (StashApiException e) {
-      pollLog.log(
-          "Cannot read additional parameters for PR #{}, skipping", pullRequest.getId(), e);
-      logger.log(
-          Level.INFO,
-          format(
-              "%s: cannot read additional parameters for pull request %s, skipping",
-              job.getFullName(), pullRequest.getId()),
-          e);
-      return;
-    }
+    additionalParameters = getAdditionalParameters(pullRequest);
 
     // Delete comments about previous build results, if that option is
     // enabled. Run the build even if those comments cannot be deleted.
@@ -641,6 +605,7 @@ public class StashRepository {
         return false;
       }
       if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
+        pullRequest.setBuildCommandComment(comment);
         return true;
       }
     }
