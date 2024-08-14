@@ -353,8 +353,9 @@ public class StashApiClientTest {
         post(pullRequestPostCommentPath())
             .withHeader("Content-Type", equalTo("application/json; charset=UTF-8"))
             .willReturn(jsonResponse("PostPullRequestComment.json")));
+    String commentString = "Some comment";
 
-    StashPullRequestComment comment = client.postPullRequestComment(pullRequestId, "Some comment");
+    StashPullRequestComment comment = client.postPullRequestComment(pullRequestId, commentString);
     assertThat(comment.getCommentId(), is(234));
     assertThat(comment.getText(), is("Build started"));
 
@@ -364,7 +365,30 @@ public class StashApiClientTest {
             .withHeader("Content-Type", equalTo("application/json; charset=UTF-8"))
             .withHeader("Connection", equalTo("close"))
             .withHeader("X-Atlassian-Token", equalTo("no-check"))
-            .withRequestBody(equalToJson("{\"text\":\"Some comment\"}")));
+            .withRequestBody(equalToJson("{\"text\":\"" + commentString + "\"}")));
+  }
+
+  @Test
+  public void postPullRequestComment_posts_comment_reply() throws Exception {
+    stubFor(
+        post(pullRequestPostCommentPath())
+            .withHeader("Content-Type", equalTo("application/json; charset=UTF-8"))
+            .willReturn(jsonResponse("PostPullRequestComment.json")));
+    String commentString = "Some comment";
+    Integer parentCommentId = 1;
+
+    StashPullRequestComment comment = client.postPullRequestCommentReply(pullRequestId, commentString, parentCommentId);
+    assertThat(comment.getCommentId(), is(234));
+    assertThat(comment.getText(), is("Build started"));
+
+    verify(
+        postRequestedFor(urlEqualTo(pullRequestPostCommentPath()))
+            .withBasicAuth(new BasicCredentials("Username", "Password"))
+            .withHeader("Content-Type", equalTo("application/json; charset=UTF-8"))
+            .withHeader("Connection", equalTo("close"))
+            .withHeader("X-Atlassian-Token", equalTo("no-check"))
+            .withRequestBody(
+                equalToJson("{\"text\":\"" + commentString + "\", \"parent\":{\"id\": " + parentCommentId + "}}")));
   }
 
   @Test

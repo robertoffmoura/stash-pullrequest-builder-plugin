@@ -112,6 +112,7 @@ public class StashRepositoryTest {
         "SourceCommitHash",
         "DestinationCommitHash",
         "BuildStartCommentId",
+        "BuildCommandCommentId",
         "PullRequestVersion",
         additionalParameters);
   }

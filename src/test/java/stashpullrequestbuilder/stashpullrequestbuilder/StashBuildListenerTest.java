@@ -77,6 +77,7 @@ public class StashBuildListenerTest {
             "SourceCommitHash",
             "DestinationCommitHash",
             "BuildStartCommentId",
+            "BuildCommandCommentId",
             "PullRequestVersion",
             null);
   }
@@ -150,6 +151,7 @@ public class StashBuildListenerTest {
             eq(stashCause.getPullRequestId()),
             eq(stashCause.getSourceCommitHash()),
             eq(stashCause.getDestinationCommitHash()),
+            eq(stashCause.getBuildCommandCommentId()),
             eq(Result.SUCCESS),
             startsWith("http://localhost"),
             eq(buildNumber),

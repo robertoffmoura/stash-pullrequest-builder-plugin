@@ -128,8 +128,13 @@ public class StashRepository {
     String destinationCommit = pullRequest.getToRef().getLatestCommit();
     String comment =
         format(BUILD_START_MARKER, job.getDisplayName(), sourceCommit, destinationCommit);
-    StashPullRequestComment commentResponse =
-        this.client.postPullRequestComment(pullRequest.getId(), comment);
+    StashPullRequestComment commentResponse;
+    if (pullRequest.getBuildCommandComment() != null) {
+      commentResponse = this.client.postPullRequestCommentReply(
+              pullRequest.getId(), comment, pullRequest.getBuildCommandComment().getCommentId());
+    } else {
+      commentResponse = this.client.postPullRequestComment(pullRequest.getId(), comment);
+    }
     return commentResponse.getCommentId().toString();
   }
 
@@ -295,14 +300,12 @@ public class StashRepository {
     // prevents the build for safety reasons. If the plugin cannot post this
     // comment, chances are it won't be able to post the build results, which
     // would trigger the build again and again, wasting Jenkins resources.
-    String commentId;
+    String buildStartCommentId;
     try {
-      commentId = postBuildStartCommentTo(pullRequest);
+      buildStartCommentId = postBuildStartCommentTo(pullRequest);
     } catch (StashApiException e) {
       pollLog.log(
-          "Cannot post \"BuildStarted\" comment for PR #{}, not building",
-          pullRequest.getId(),
-          e);
+          "Cannot post \"BuildStarted\" comment for PR #{}, not building", pullRequest.getId(), e);
       logger.log(
           Level.INFO,
           format(
@@ -311,6 +314,10 @@ public class StashRepository {
           e);
       return;
     }
+
+    String buildCommandCommentId = pullRequest.getBuildCommandComment() != null
+        ? pullRequest.getBuildCommandComment().getCommentId().toString()
+        : "";
 
     StashCause cause =
         new StashCause(
@@ -325,7 +332,8 @@ public class StashRepository {
             pullRequest.getTitle(),
             pullRequest.getFromRef().getLatestCommit(),
             pullRequest.getToRef().getLatestCommit(),
-            commentId,
+            buildStartCommentId,
+            buildCommandCommentId,
             pullRequest.getVersion(),
             additionalParameters);
 
@@ -373,6 +381,7 @@ public class StashRepository {
       String pullRequestId,
       String sourceCommit,
       String destinationCommit,
+      String buildCommandCommentId,
       Result buildResult,
       String buildUrl,
       int buildNumber,
@@ -395,7 +404,12 @@ public class StashRepository {
     // Post the "Build Finished" comment. Failure to post it can lead to
     // scheduling another build for the pull request unnecessarily.
     try {
-      this.client.postPullRequestComment(pullRequestId, comment);
+      if (!buildCommandCommentId.isEmpty()) {
+        this.client.postPullRequestCommentReply(
+            pullRequestId, comment, Integer.valueOf(buildCommandCommentId));
+      } else {
+        this.client.postPullRequestComment(pullRequestId, comment);
+      }
     } catch (StashApiException e) {
       logger.log(
           Level.WARNING,

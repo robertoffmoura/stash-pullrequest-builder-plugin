@@ -60,6 +60,7 @@ public class StashBuildEnvironmentContributorTest {
             "SourceCommitHash",
             "DestinationCommitHash",
             "BuildStartCommentId",
+            "BuildCommandCommentId",
             "PullRequestVersion",
             null);
   }

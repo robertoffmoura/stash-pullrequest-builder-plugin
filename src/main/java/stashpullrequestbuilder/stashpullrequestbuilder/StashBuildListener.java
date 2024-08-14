@@ -118,6 +118,7 @@ public class StashBuildListener extends RunListener<Run<?, ?>> {
         cause.getPullRequestId(),
         cause.getSourceCommitHash(),
         cause.getDestinationCommitHash(),
+        cause.getBuildCommandCommentId(),
         result,
         buildUrl,
         run.getNumber(),
