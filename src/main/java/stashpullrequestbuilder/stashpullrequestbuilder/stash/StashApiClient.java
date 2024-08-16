@@ -60,18 +60,21 @@ public class StashApiClient {
   private Credentials credentials;
   private boolean ignoreSsl;
 
+  private HttpClientBuilder httpClientBuilder;
+
   public StashApiClient(
       String stashHost,
       String username,
       String password,
       String project,
       String repositoryName,
-      boolean ignoreSsl) {
+      boolean ignoreSsl) throws StashApiException {
     this.credentials = new UsernamePasswordCredentials(username, password);
     this.project = project;
     this.repositoryName = repositoryName;
     this.apiBaseUrl = stashHost.replaceAll("/$", "") + "/rest/api/1.0/projects/";
     this.ignoreSsl = ignoreSsl;
+    this.httpClientBuilder = getHttpClientBuilder();
   }
 
   @Nonnull
@@ -214,7 +217,7 @@ public class StashApiClient {
     return Optional.of(response);
   }
 
-  private CloseableHttpClient getHttpClient() throws StashApiException {
+  private HttpClientBuilder getHttpClientBuilder() throws StashApiException {
     HttpClientBuilder httpClientBuilder = HttpClientBuilder.create().useSystemProperties();
 
     if (this.ignoreSsl) {
@@ -236,7 +239,10 @@ public class StashApiClient {
             .setConnectTimeout(HTTP_CONNECTION_TIMEOUT_SECONDS * 1000)
             .setSocketTimeout(HTTP_SOCKET_TIMEOUT_SECONDS * 1000);
     httpClientBuilder.setDefaultRequestConfig(requestBuilder.build());
+    return httpClientBuilder;
+  }
 
+  private CloseableHttpClient getHttpClient() {
     return httpClientBuilder.build();
   }
 
