@@ -5,7 +5,17 @@
     {
       "comment" : {
         "id" : 0,
-        "text" : "First comment"
+        "text" : "First comment",
+        "comments" : [
+          {
+            "id" : 1,
+            "text" : "First reply"
+          },
+          {
+            "id" : 2,
+            "text" : "Second reply"
+          }
+        ]
       }
     },
     {

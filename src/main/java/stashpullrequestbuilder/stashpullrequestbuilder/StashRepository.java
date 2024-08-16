@@ -21,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -38,10 +39,10 @@ import jenkins.model.ParameterizedJobMixIn.ParameterizedJob;
 import org.apache.commons.lang.StringUtils;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashApiClient;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashApiClient.StashApiException;
+import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestBuildTarget;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestComment;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestMergeableResponse;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestResponseValue;
-import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestResponseValueRepository;
 
 /** Created by Nathan McCarthy */
 public class StashRepository {
@@ -88,31 +89,179 @@ public class StashRepository {
   }
 
   public Collection<StashPullRequestResponseValue> getTargetPullRequests() {
-    List<StashPullRequestResponseValue> targetPullRequests = new ArrayList<>();
-
     // Fetch "OPEN" pull requests from the server. Failure to get the list will
     // prevent builds from being scheduled. However, the call will be retried
     // during the next cycle, as determined by the cron settings.
-    List<StashPullRequestResponseValue> pullRequests;
     try {
-      pullRequests = client.getPullRequests();
+      return client.getPullRequests();
     } catch (StashApiException e) {
       pollLog.log("Cannot fetch pull request list", e);
       logger.log(Level.INFO, format("%s: cannot fetch pull request list", job.getFullName()), e);
-      return targetPullRequests;
+      return new ArrayList<>();
+    }
+  }
+
+  private boolean shouldSkip(StashPullRequestResponseValue pullRequest) {
+    if (!"OPEN".equals(pullRequest.getState())) {
+      return true;
     }
 
-    pollLog.log("Number of open pull requests: {}", pullRequests.size());
+    if (isSkipBuild(pullRequest.getTitle())) {
+      pollLog.log("Not building PR #{}, its title contains the skip phrase", pullRequest.getId());
+      return true;
+    }
 
-    for (StashPullRequestResponseValue pullRequest : pullRequests) {
-      if (isBuildTarget(pullRequest)) {
-        targetPullRequests.add(pullRequest);
+    if (!isForTargetBranch(pullRequest)) {
+      pollLog.log(
+          "Not building PR #{} as it targets branch {}",
+          pullRequest.getId(),
+          pullRequest.getToRef().getBranch().getName());
+      return true;
+    }
+
+    // Check whether the pull request can be merged and whether it's in the
+    // "conflicted" state. If that information cannot be retrieved, don't build
+    // the pull request in this cycle.
+    try {
+      if (!isPullRequestMergeable(pullRequest)) {
+        pollLog.log("Not building PR #{} as it cannot be merged", pullRequest.getId());
+        return true;
+      }
+    } catch (StashApiException e) {
+      pollLog.log("Cannot determine if PR #{} can be merged, not building", pullRequest.getId(), e);
+      logger.log(
+          Level.INFO,
+          format(
+              "%s: cannot determine if pull request %s can be merged, skipping",
+              job.getFullName(), pullRequest.getId()),
+          e);
+      return true;
+    }
+
+    return false;
+  }
+
+  private boolean isStartOrFinishMessage(String content) {
+    // These will match any start or finish message -- need to check commits
+    String escapedBuildName = Pattern.quote(job.getDisplayName());
+    String project_build_start = String.format(BUILD_START_REGEX, escapedBuildName);
+    String project_build_finished = String.format(BUILD_FINISH_REGEX, escapedBuildName);
+    Matcher startMatcher =
+        Pattern.compile(project_build_start, Pattern.CASE_INSENSITIVE).matcher(content);
+    Matcher finishMatcher =
+        Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
+
+    return startMatcher.find() || finishMatcher.find();
+  }
+
+  public Collection<StashPullRequestBuildTarget> getBuildTargets(StashPullRequestResponseValue pullRequest) {
+    if (shouldSkip(pullRequest)) {
+      return new ArrayList<>();
+    }
+
+    String owner = pullRequest.getToRef().getRepository().getProjectName();
+    String repositoryName = pullRequest.getToRef().getRepository().getRepositoryName();
+
+    String id = pullRequest.getId();
+
+    // Fetch all comments for the pull request. If it fails, don't build the
+    // pull request in this cycle, as it cannot be determined if it should be
+    // built without checking the comments.
+    List<StashPullRequestComment> comments;
+    try {
+      comments = client.getPullRequestComments(owner, repositoryName, id);
+    } catch (StashApiException e) {
+      pollLog.log("Cannot read comments for PR #{}, not building", pullRequest.getId(), e);
+      logger.log(Level.INFO, format("%s: cannot read pull request comments", job.getFullName()), e);
+      return new ArrayList<>();
+    }
+
+    boolean isOnlyBuildOnComment = trigger.getOnlyBuildOnComment();
+    if (isOnlyBuildOnComment) {
+      return getBuildTargetsWithOnlyBuildOnCommentLogic(pullRequest, comments);
+    } else {
+      return getBuildTargetsWithoutOnlyBuildOnCommentLogic(pullRequest, comments);
+    }
+  }
+
+  public Collection<StashPullRequestBuildTarget> getBuildTargetsWithOnlyBuildOnCommentLogic(
+      StashPullRequestResponseValue pullRequest, List<StashPullRequestComment> comments) {
+    List<StashPullRequestBuildTarget> buildTargets = new ArrayList<>();
+
+    for (StashPullRequestComment comment : comments) {
+      String content = comment.getText();
+      if (StringUtils.isEmpty(content)) {
+        continue;
+      }
+
+      if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
+        if (comment.getReplies() != null
+            && !comment.getReplies().isEmpty()
+            && comment.getReplies().stream().anyMatch(reply -> isStartOrFinishMessage(reply.getText()))) {
+          continue;
+        }
+
+        buildTargets.add(
+            new StashPullRequestBuildTarget(pullRequest, getAdditionalParameters(comment), comment.getCommentId()));
       }
     }
+    return buildTargets;
+  }
 
-    pollLog.log("Number of pull requests to be built: {}", targetPullRequests.size());
+  public Collection<StashPullRequestBuildTarget> getBuildTargetsWithoutOnlyBuildOnCommentLogic(
+    StashPullRequestResponseValue pullRequest, List<StashPullRequestComment> comments) {
+      String sourceCommit = pullRequest.getFromRef().getLatestCommit();
+      String destinationCommit = pullRequest.getToRef().getLatestCommit();
 
-    return targetPullRequests;
+      // Start with most recent comments
+      comments.sort(Comparator.reverseOrder());
+
+      for (StashPullRequestComment comment : comments) {
+        String content = comment.getText();
+        if (StringUtils.isEmpty(content)) {
+          continue;
+        }
+
+        // These will match any start or finish message -- need to check commits
+        String escapedBuildName = Pattern.quote(job.getDisplayName());
+        String project_build_start = String.format(BUILD_START_REGEX, escapedBuildName);
+        String project_build_finished = String.format(BUILD_FINISH_REGEX, escapedBuildName);
+        Matcher startMatcher =
+            Pattern.compile(project_build_start, Pattern.CASE_INSENSITIVE).matcher(content);
+        Matcher finishMatcher =
+            Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
+
+        if (isStartOrFinishMessage(content)) {
+          String sourceCommitMatch;
+          String destinationCommitMatch;
+
+          if (startMatcher.find(0)) {
+            sourceCommitMatch = startMatcher.group(1);
+            destinationCommitMatch = startMatcher.group(2);
+          } else {
+            sourceCommitMatch = finishMatcher.group(1);
+            destinationCommitMatch = finishMatcher.group(2);
+          }
+
+          // first check source commit -- if it doesn't match, just move on. If it does,
+          // investigate further.
+          if (sourceCommitMatch.equalsIgnoreCase(sourceCommit)) {
+            // if we're checking destination commits, and if this doesn't match, then move on.
+            if (this.trigger.getCheckDestinationCommit()
+                && (!destinationCommitMatch.equalsIgnoreCase(destinationCommit))) {
+              continue;
+            }
+            return new ArrayList<>();
+          }
+        }
+        if (isSkipBuild(content)) {
+          return new ArrayList<>();
+        }
+        if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
+          return Collections.singletonList(new StashPullRequestBuildTarget(pullRequest, getAdditionalParameters(comment)));
+        }
+      }
+      return Collections.singletonList(new StashPullRequestBuildTarget(pullRequest));
   }
 
   /**
@@ -122,16 +271,16 @@ public class StashRepository {
    * @return comment ID
    * @throws StashApiException if posting the comment fails
    */
-  private String postBuildStartCommentTo(StashPullRequestResponseValue pullRequest)
+  private String postBuildStartCommentTo(StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId)
       throws StashApiException {
     String sourceCommit = pullRequest.getFromRef().getLatestCommit();
     String destinationCommit = pullRequest.getToRef().getLatestCommit();
     String comment =
         format(BUILD_START_MARKER, job.getDisplayName(), sourceCommit, destinationCommit);
     StashPullRequestComment commentResponse;
-    if (pullRequest.getBuildCommandComment() != null) {
+    if (buildCommandCommentId != null) {
       commentResponse = this.client.postPullRequestCommentReply(
-              pullRequest.getId(), comment, pullRequest.getBuildCommandComment().getCommentId());
+              pullRequest.getId(), comment, buildCommandCommentId);
     } else {
       commentResponse = this.client.postPullRequestComment(pullRequest.getId(), comment);
     }
@@ -165,8 +314,7 @@ public class StashRepository {
     return result;
   }
 
-  Map<String, String> getAdditionalParameters(StashPullRequestResponseValue pullRequest) {
-    StashPullRequestComment comment = pullRequest.getBuildCommandComment();
+  Map<String, String> getAdditionalParameters(StashPullRequestComment comment) {
     if (comment != null) {
       return getParametersFromContent(comment.getText());
     } else {
@@ -266,16 +414,10 @@ public class StashRepository {
         job, -1, new CauseAction(cause), new StashQueueAction(), new ParametersAction(values));
   }
 
-  void addFutureBuildTasks(Collection<StashPullRequestResponseValue> pullRequests) {
-    for (StashPullRequestResponseValue pullRequest : pullRequests) {
-      addFutureBuildTasks(pullRequest);
-    }
-  }
-
-  void addFutureBuildTasks(StashPullRequestResponseValue pullRequest) {
-    Map<String, String> additionalParameters;
-
-    additionalParameters = getAdditionalParameters(pullRequest);
+  void addFutureBuildTask(StashPullRequestBuildTarget buildTarget) {
+    StashPullRequestResponseValue pullRequest = buildTarget.getPullRequest();
+    Map<String, String> additionalParameters = buildTarget.getAdditionalParameters();
+    Integer buildCommandCommentId = buildTarget.getBuildCommandCommentId();
 
     // Delete comments about previous build results, if that option is
     // enabled. Run the build even if those comments cannot be deleted.
@@ -302,7 +444,7 @@ public class StashRepository {
     // would trigger the build again and again, wasting Jenkins resources.
     String buildStartCommentId;
     try {
-      buildStartCommentId = postBuildStartCommentTo(pullRequest);
+      buildStartCommentId = postBuildStartCommentTo(pullRequest, buildCommandCommentId);
     } catch (StashApiException e) {
       pollLog.log(
           "Cannot post \"BuildStarted\" comment for PR #{}, not building", pullRequest.getId(), e);
@@ -314,10 +456,6 @@ public class StashRepository {
           e);
       return;
     }
-
-    String buildCommandCommentId = pullRequest.getBuildCommandComment() != null
-        ? pullRequest.getBuildCommandComment().getCommentId().toString()
-        : "";
 
     StashCause cause =
         new StashCause(
@@ -381,7 +519,7 @@ public class StashRepository {
       String pullRequestId,
       String sourceCommit,
       String destinationCommit,
-      String buildCommandCommentId,
+      Integer buildCommandCommentId,
       Result buildResult,
       String buildUrl,
       int buildNumber,
@@ -404,9 +542,9 @@ public class StashRepository {
     // Post the "Build Finished" comment. Failure to post it can lead to
     // scheduling another build for the pull request unnecessarily.
     try {
-      if (!buildCommandCommentId.isEmpty()) {
+      if (buildCommandCommentId != null) {
         this.client.postPullRequestCommentReply(
-            pullRequestId, comment, Integer.valueOf(buildCommandCommentId));
+            pullRequestId, comment, buildCommandCommentId);
       } else {
         this.client.postPullRequestComment(pullRequestId, comment);
       }
@@ -484,9 +622,8 @@ public class StashRepository {
   private void deletePreviousBuildFinishedComments(StashPullRequestResponseValue pullRequest)
       throws StashApiException {
 
-    StashPullRequestResponseValueRepository destination = pullRequest.getToRef();
-    String owner = destination.getRepository().getProjectName();
-    String repositoryName = destination.getRepository().getRepositoryName();
+    String owner = pullRequest.getToRef().getRepository().getProjectName();
+    String repositoryName = pullRequest.getToRef().getRepository().getRepositoryName();
     String id = pullRequest.getId();
 
     List<StashPullRequestComment> comments =
@@ -506,124 +643,6 @@ public class StashRepository {
         deletePullRequestComment(pullRequest.getId(), comment.getCommentId().toString());
       }
     }
-  }
-
-  private boolean isBuildTarget(StashPullRequestResponseValue pullRequest) {
-    if (!"OPEN".equals(pullRequest.getState())) {
-      return false;
-    }
-
-    if (isSkipBuild(pullRequest.getTitle())) {
-      pollLog.log("Not building PR #{}, its title contains the skip phrase", pullRequest.getId());
-      return false;
-    }
-
-    if (!isForTargetBranch(pullRequest)) {
-      pollLog.log(
-          "Not building PR #{} as it targets branch {}",
-          pullRequest.getId(),
-          pullRequest.getToRef().getBranch().getName());
-      return false;
-    }
-
-    // Check whether the pull request can be merged and whether it's in the
-    // "conflicted" state. If that information cannot be retrieved, don't build
-    // the pull request in this cycle.
-    try {
-      if (!isPullRequestMergeable(pullRequest)) {
-        pollLog.log("Not building PR #{} as it cannot be merged", pullRequest.getId());
-        return false;
-      }
-    } catch (StashApiException e) {
-      pollLog.log("Cannot determine if PR #{} can be merged, not building", pullRequest.getId(), e);
-      logger.log(
-          Level.INFO,
-          format(
-              "%s: cannot determine if pull request %s can be merged, skipping",
-              job.getFullName(), pullRequest.getId()),
-          e);
-      return false;
-    }
-
-    boolean isOnlyBuildOnComment = trigger.getOnlyBuildOnComment();
-
-    String sourceCommit = pullRequest.getFromRef().getLatestCommit();
-
-    StashPullRequestResponseValueRepository destination = pullRequest.getToRef();
-    String owner = destination.getRepository().getProjectName();
-    String repositoryName = destination.getRepository().getRepositoryName();
-    String destinationCommit = destination.getLatestCommit();
-
-    String id = pullRequest.getId();
-
-    // Fetch all comments for the pull request. If it fails, don't build the
-    // pull request in this cycle, as it cannot be determined if it should be
-    // built without checking the comments.
-    List<StashPullRequestComment> comments;
-    try {
-      comments = client.getPullRequestComments(owner, repositoryName, id);
-    } catch (StashApiException e) {
-      pollLog.log("Cannot read comments for PR #{}, not building", pullRequest.getId(), e);
-      logger.log(Level.INFO, format("%s: cannot read pull request comments", job.getFullName()), e);
-      return false;
-    }
-
-    // Start with most recent comments
-    comments.sort(Comparator.reverseOrder());
-
-    for (StashPullRequestComment comment : comments) {
-      String content = comment.getText();
-      if (StringUtils.isEmpty(content)) {
-        continue;
-      }
-
-      // These will match any start or finish message -- need to check commits
-      String escapedBuildName = Pattern.quote(job.getDisplayName());
-      String project_build_start = String.format(BUILD_START_REGEX, escapedBuildName);
-      String project_build_finished = String.format(BUILD_FINISH_REGEX, escapedBuildName);
-      Matcher startMatcher =
-          Pattern.compile(project_build_start, Pattern.CASE_INSENSITIVE).matcher(content);
-      Matcher finishMatcher =
-          Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
-
-      if (startMatcher.find() || finishMatcher.find()) {
-        // in build only on comment, we should stop parsing comments as soon as a PR builder
-        // comment is found.
-        if (isOnlyBuildOnComment) {
-          return false;
-        }
-
-        String sourceCommitMatch;
-        String destinationCommitMatch;
-
-        if (startMatcher.find(0)) {
-          sourceCommitMatch = startMatcher.group(1);
-          destinationCommitMatch = startMatcher.group(2);
-        } else {
-          sourceCommitMatch = finishMatcher.group(1);
-          destinationCommitMatch = finishMatcher.group(2);
-        }
-
-        // first check source commit -- if it doesn't match, just move on. If it does,
-        // investigate further.
-        if (sourceCommitMatch.equalsIgnoreCase(sourceCommit)) {
-          // if we're checking destination commits, and if this doesn't match, then move on.
-          if (this.trigger.getCheckDestinationCommit()
-              && (!destinationCommitMatch.equalsIgnoreCase(destinationCommit))) {
-            continue;
-          }
-          return false;
-        }
-      }
-      if (isSkipBuild(content)) {
-        return false;
-      }
-      if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
-        pullRequest.setBuildCommandComment(comment);
-        return true;
-      }
-    }
-    return !isOnlyBuildOnComment;
   }
 
   private boolean isForTargetBranch(StashPullRequestResponseValue pullRequest) {
@@ -669,7 +688,17 @@ public class StashRepository {
     logger.finest(format("poll started for %s", job.getFullName()));
 
     Collection<StashPullRequestResponseValue> targetPullRequests = getTargetPullRequests();
-    addFutureBuildTasks(targetPullRequests);
+    pollLog.log("Number of open pull requests: {}", targetPullRequests.size());
+
+    List<StashPullRequestBuildTarget> buildTargets = new ArrayList<>();
+    for (StashPullRequestResponseValue pullRequest : targetPullRequests) {
+      buildTargets.addAll(getBuildTargets(pullRequest));
+    }
+
+    pollLog.log("Number of build targets to be built: {}", buildTargets.size());
+    for (StashPullRequestBuildTarget buildTarget : buildTargets) {
+      addFutureBuildTask(buildTarget);
+    }
 
     pollLog.log(
         "{}: poll completed in {}",

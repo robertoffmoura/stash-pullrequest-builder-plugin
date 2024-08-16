@@ -21,11 +21,6 @@ public class StashPullRequestResponseValue {
   private String createdDate;
   private String updatedDate;
 
-  // If the pull request is a build target, it will be the command that
-  // triggered the build, and null otherwise. Populated by calling
-  // StashRepository.isBuildTarget().
-  private StashPullRequestComment buildCommandComment;
-
   private String id;
 
   private String version;
@@ -126,13 +121,5 @@ public class StashPullRequestResponseValue {
 
   public void setId(String id) {
     this.id = id;
-  }
-
-  public StashPullRequestComment getBuildCommandComment() {
-    return buildCommandComment;
-  }
-
-  public void setBuildCommandComment(StashPullRequestComment value) {
-    this.buildCommandComment = value;
   }
 }

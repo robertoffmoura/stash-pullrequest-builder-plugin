@@ -17,7 +17,7 @@ public class StashCause extends Cause {
   private final String sourceCommitHash;
   private final String destinationCommitHash;
   private final String buildStartCommentId;
-  private final String buildCommandCommentId;
+  private final Integer buildCommandCommentId;
   private final String pullRequestVersion;
   private final String stashHost;
   private final Map<String, String> additionalParameters;
@@ -35,7 +35,7 @@ public class StashCause extends Cause {
       String sourceCommitHash,
       String destinationCommitHash,
       String buildStartCommentId,
-      String buildCommandCommentId,
+      Integer buildCommandCommentId,
       String pullRequestVersion,
       Map<String, String> additionalParameters) {
     this.sourceBranch = sourceBranch;
@@ -103,7 +103,7 @@ public class StashCause extends Cause {
     return buildStartCommentId;
   }
 
-  public String getBuildCommandCommentId() {
+  public Integer getBuildCommandCommentId() {
     return buildCommandCommentId;
   }
 
