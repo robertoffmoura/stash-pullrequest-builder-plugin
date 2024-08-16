@@ -2,6 +2,8 @@ package stashpullrequestbuilder.stashpullrequestbuilder.stash;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.util.List;
 import java.util.Objects;
 
 /** Created by Nathan McCarthy */
@@ -10,8 +12,13 @@ public class StashPullRequestComment implements Comparable<StashPullRequestComme
 
   private Integer commentId;
   private String text;
+  private List<StashPullRequestComment> replies;
 
   public StashPullRequestComment() {}
+
+  public StashPullRequestComment(String text) {
+    this.text = text;
+  }
 
   public StashPullRequestComment(Integer commentId, String text) {
     this.commentId = commentId;
@@ -34,6 +41,16 @@ public class StashPullRequestComment implements Comparable<StashPullRequestComme
 
   public void setText(String text) {
     this.text = text;
+  }
+
+  @JsonProperty("comments")
+  public List<StashPullRequestComment> getReplies() {
+    return replies;
+  }
+
+  @JsonProperty("comments")
+  public void setReplies(List<StashPullRequestComment> value) {
+    this.replies = value;
   }
 
   @Override

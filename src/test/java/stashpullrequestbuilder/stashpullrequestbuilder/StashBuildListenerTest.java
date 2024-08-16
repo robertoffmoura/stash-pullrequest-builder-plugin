@@ -77,7 +77,7 @@ public class StashBuildListenerTest {
             "SourceCommitHash",
             "DestinationCommitHash",
             "BuildStartCommentId",
-            "BuildCommandCommentId",
+            null,
             "PullRequestVersion",
             null);
   }

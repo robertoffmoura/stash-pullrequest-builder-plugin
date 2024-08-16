@@ -256,6 +256,25 @@ public class StashApiClientTest {
   }
 
   @Test
+  public void getPullRequestComments_gets_replies() throws Exception {
+    stubFor(
+        get(pullRequestActivitiesPath(0))
+            .willReturn(jsonResponse("PullRequestCommentsPage1.json")));
+    stubFor(
+        get(pullRequestActivitiesPath(4))
+            .willReturn(jsonResponse("PullRequestCommentsPage2.json")));
+    stubFor(
+        get(pullRequestActivitiesPath(8))
+            .willReturn(jsonResponse("PullRequestCommentsPage3.json")));
+
+    List<StashPullRequestComment> comments =
+        client.getPullRequestComments(projectName, repositoryName, pullRequestId);
+    assertThat(comments.get(0).getReplies(), hasSize(2));
+    assertThat(comments.get(0).getReplies().get(0).getText(), is("First reply"));
+    assertThat(comments.get(0).getReplies().get(1).getText(), is("Second reply"));
+  }
+
+  @Test
   public void getPullRequestComments_throws_on_not_found() throws Exception {
     stubFor(any(anyUrl()).willReturn(notFound()));
 
