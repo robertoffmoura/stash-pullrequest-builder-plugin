@@ -1,3 +1,11 @@
+## Build and deploy instructions
+
+Run Maven package from the root directory.
+```
+mvn package
+```
+This will generate a `.hpi` file in the `target` directory. To deploy the plugin, go to Jenkins Dashboard > Manage Jenkins > Plugins > Advanced settings, choose the `.hpi` file and click `Deploy`.
+
 Stash Pull Request Builder Plugin
 ================================
 
