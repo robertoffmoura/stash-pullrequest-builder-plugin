@@ -68,7 +68,8 @@ public class StashApiClient {
       String password,
       String project,
       String repositoryName,
-      boolean ignoreSsl) throws StashApiException {
+      boolean ignoreSsl)
+      throws StashApiException {
     this.credentials = new UsernamePasswordCredentials(username, password);
     this.project = project;
     this.repositoryName = repositoryName;

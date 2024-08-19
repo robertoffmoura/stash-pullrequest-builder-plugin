@@ -12,7 +12,6 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasEntry;
-import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -55,8 +54,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashApiClient;
-import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestBuildTarget;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashApiClient.StashApiException;
+import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestBuildTarget;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestComment;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestResponseValue;
 import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestResponseValueRepository;
@@ -66,10 +65,8 @@ import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestRes
 @RunWith(MockitoJUnitRunner.class)
 public class StashRepositoryTest {
 
-  @Rule
-  public JenkinsRule jenkinsRule = new JenkinsRule();
-  @Rule
-  public MockitoRule rule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+  @Rule public JenkinsRule jenkinsRule = new JenkinsRule();
+  @Rule public MockitoRule rule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
   private StashRepository stashRepository;
 
@@ -79,12 +76,9 @@ public class StashRepositoryTest {
   private StashPullRequestResponseValue pullRequest;
   private List<StashPullRequestResponseValue> pullRequestList;
 
-  @Mock
-  private StashBuildTrigger trigger;
-  @Mock
-  private StashApiClient stashApiClient;
-  @Mock
-  private ParametersDefinitionProperty parametersDefinitionProperty;
+  @Mock private StashBuildTrigger trigger;
+  @Mock private StashApiClient stashApiClient;
+  @Mock private ParametersDefinitionProperty parametersDefinitionProperty;
 
   @Before
   public void before() throws Exception {
@@ -92,12 +86,15 @@ public class StashRepositoryTest {
     pollLog = new StashPollingAction(project);
     stashRepository = new StashRepository(project, trigger, stashApiClient, pollLog);
 
-    StashPullRequestResponseValueRepositoryBranch branch = new StashPullRequestResponseValueRepositoryBranch();
+    StashPullRequestResponseValueRepositoryBranch branch =
+        new StashPullRequestResponseValueRepositoryBranch();
     branch.setName("feature/add-bloat");
 
-    StashPullRequestResponseValueRepositoryRepository repoRepo = new StashPullRequestResponseValueRepositoryRepository();
+    StashPullRequestResponseValueRepositoryRepository repoRepo =
+        new StashPullRequestResponseValueRepositoryRepository();
 
-    StashPullRequestResponseValueRepository repository = new StashPullRequestResponseValueRepository();
+    StashPullRequestResponseValueRepository repository =
+        new StashPullRequestResponseValueRepository();
     repository.setBranch(branch);
     repository.setRepository(repoRepo);
 
@@ -178,9 +175,9 @@ public class StashRepositoryTest {
   public void getBuildTargets_accepts_matching_branches() throws Exception {
     when(trigger.getTargetBranchesToBuild()).thenReturn("release/.*,feature/.*,testing/.*");
 
-    assertThat(stashRepository.getBuildTargets(pullRequest), allOf(
-        hasSize(1),
-        contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
   }
 
   @Test
@@ -188,9 +185,9 @@ public class StashRepositoryTest {
     when(trigger.getTargetBranchesToBuild())
         .thenReturn("\trelease/.*, \n\tfeature/.* \r\n, testing/.*\r");
 
-    assertThat(stashRepository.getBuildTargets(pullRequest), allOf(
-        hasSize(1),
-        contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
   }
 
   @Test
@@ -201,23 +198,21 @@ public class StashRepositoryTest {
   }
 
   @Test
-  public void getBuildTargets_accepts_any_branch_if_Branches_to_Build_is_empty()
-      throws Exception {
+  public void getBuildTargets_accepts_any_branch_if_Branches_to_Build_is_empty() throws Exception {
     when(trigger.getTargetBranchesToBuild()).thenReturn("");
 
-    assertThat(stashRepository.getBuildTargets(pullRequest), allOf(
-        hasSize(1),
-        contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
   }
 
   @Test
-  public void getBuildTargets_accepts_any_branch_if_Branches_to_Build_is_null()
-      throws Exception {
+  public void getBuildTargets_accepts_any_branch_if_Branches_to_Build_is_null() throws Exception {
     when(trigger.getTargetBranchesToBuild()).thenReturn(null);
 
-    assertThat(stashRepository.getBuildTargets(pullRequest), allOf(
-        hasSize(1),
-        contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
   }
 
   @Test
@@ -235,7 +230,8 @@ public class StashRepositoryTest {
     when(trigger.getCiSkipPhrases()).thenReturn("NO TEST");
     when(project.getFullName()).thenReturn("Pull Request Builder Project");
 
-    List<StashPullRequestComment> comments = Collections.singletonList(new StashPullRequestComment("NO TEST"));
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(new StashPullRequestComment("NO TEST"));
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
 
     assertThat(stashRepository.getBuildTargets(pullRequest), empty());
@@ -248,14 +244,14 @@ public class StashRepositoryTest {
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
     when(project.getFullName()).thenReturn("Pull Request Builder Project");
 
-    List<StashPullRequestComment> comments = Arrays.asList(
-        new StashPullRequestComment(1, "NO TEST"),
-        new StashPullRequestComment(2, "DO TEST"));
+    List<StashPullRequestComment> comments =
+        Arrays.asList(
+            new StashPullRequestComment(1, "NO TEST"), new StashPullRequestComment(2, "DO TEST"));
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
 
-    assertThat(stashRepository.getBuildTargets(pullRequest), allOf(
-        hasSize(1),
-        contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
   }
 
   @Test
@@ -291,9 +287,9 @@ public class StashRepositoryTest {
 
     pullRequest.setTitle("NO TEST");
 
-    assertThat(stashRepository.getBuildTargets(pullRequest), allOf(
-        hasSize(1),
-        contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
   }
 
   @Test
@@ -302,9 +298,9 @@ public class StashRepositoryTest {
 
     pullRequest.setTitle("NO TEST");
 
-    assertThat(stashRepository.getBuildTargets(pullRequest), allOf(
-        hasSize(1),
-        contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
   }
 
   @Test
@@ -317,27 +313,29 @@ public class StashRepositoryTest {
   }
 
   @Test
-  public void getBuildTargets_notOnlyBuildOnComment_resets_parameters_if_none_specified_in_build_command()
-      throws Exception {
+  public void
+      getBuildTargets_notOnlyBuildOnComment_resets_parameters_if_none_specified_in_build_command()
+          throws Exception {
     when(trigger.getOnlyBuildOnComment()).thenReturn(false);
-    StashPullRequestComment comment1 = new StashPullRequestComment(1, "DO TEST\np:key1=value1\np:key2=value2");
+    StashPullRequestComment comment1 =
+        new StashPullRequestComment(1, "DO TEST\np:key1=value1\np:key2=value2");
     StashPullRequestComment comment2 = new StashPullRequestComment(2, "DO TEST");
     List<StashPullRequestComment> comments = Arrays.asList(comment1, comment2);
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
 
-    Collection<StashPullRequestBuildTarget> buildTargets = stashRepository.getBuildTargets(pullRequest);
+    Collection<StashPullRequestBuildTarget> buildTargets =
+        stashRepository.getBuildTargets(pullRequest);
 
-    assertThat(buildTargets, allOf(
-        hasSize(1),
-        contains(
-            hasProperty("additionalParameters",
-                aMapWithSize(0)))));
+    assertThat(
+        buildTargets,
+        allOf(hasSize(1), contains(hasProperty("additionalParameters", aMapWithSize(0)))));
   }
 
   @Test
-  public void getBuildTargets_notOnlyBuildOnComment_ignores_parameter_definitions_before_build_command()
-      throws Exception {
+  public void
+      getBuildTargets_notOnlyBuildOnComment_ignores_parameter_definitions_before_build_command()
+          throws Exception {
     when(trigger.getOnlyBuildOnComment()).thenReturn(false);
     StashPullRequestComment comment1 = new StashPullRequestComment(1, "DO TEST\np:key1=value1");
     StashPullRequestComment comment2 = new StashPullRequestComment(2, "DO TEST\np:key2=value2");
@@ -345,18 +343,22 @@ public class StashRepositoryTest {
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
 
-    Collection<StashPullRequestBuildTarget> buildTargets = stashRepository.getBuildTargets(pullRequest);
+    Collection<StashPullRequestBuildTarget> buildTargets =
+        stashRepository.getBuildTargets(pullRequest);
 
-    assertThat(buildTargets, allOf(
-        hasSize(1),
-        contains(
-            hasProperty("additionalParameters",
-                allOf(is(aMapWithSize(1)),
-                    hasEntry("key2", "value2"))))));
+    assertThat(
+        buildTargets,
+        allOf(
+            hasSize(1),
+            contains(
+                hasProperty(
+                    "additionalParameters",
+                    allOf(is(aMapWithSize(1)), hasEntry("key2", "value2"))))));
   }
 
   @Test
-  public void getBuildTargets_notOnlyBuildOnComment_uses_newest_parameter_definition() throws Exception {
+  public void getBuildTargets_notOnlyBuildOnComment_uses_newest_parameter_definition()
+      throws Exception {
     when(trigger.getOnlyBuildOnComment()).thenReturn(false);
     StashPullRequestComment comment1 = new StashPullRequestComment(1, "DO TEST\np:key=value1");
     StashPullRequestComment comment2 = new StashPullRequestComment(2, "DO TEST\np:key=value2");
@@ -364,19 +366,23 @@ public class StashRepositoryTest {
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
 
-    Collection<StashPullRequestBuildTarget> buildTargets = stashRepository.getBuildTargets(pullRequest);
+    Collection<StashPullRequestBuildTarget> buildTargets =
+        stashRepository.getBuildTargets(pullRequest);
 
-    assertThat(buildTargets, allOf(
-        hasSize(1),
-        contains(
-            hasProperty("additionalParameters",
-                allOf(is(aMapWithSize(1)),
-                    hasEntry("key", "value2"))))));
+    assertThat(
+        buildTargets,
+        allOf(
+            hasSize(1),
+            contains(
+                hasProperty(
+                    "additionalParameters",
+                    allOf(is(aMapWithSize(1)), hasEntry("key", "value2"))))));
   }
 
   @Test
-  public void getBuildTargets_notOnlyBuildOnComment_uses_newest_parameter_definition_regardless_of_list_order()
-      throws Exception {
+  public void
+      getBuildTargets_notOnlyBuildOnComment_uses_newest_parameter_definition_regardless_of_list_order()
+          throws Exception {
     when(trigger.getOnlyBuildOnComment()).thenReturn(false);
     StashPullRequestComment comment1 = new StashPullRequestComment(1, "DO TEST\np:key=value1");
     StashPullRequestComment comment2 = new StashPullRequestComment(2, "DO TEST\np:key=value2");
@@ -385,62 +391,71 @@ public class StashRepositoryTest {
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
 
     stashRepository.getTargetPullRequests();
-    Collection<StashPullRequestBuildTarget> buildTargets = stashRepository.getBuildTargets(pullRequest);
+    Collection<StashPullRequestBuildTarget> buildTargets =
+        stashRepository.getBuildTargets(pullRequest);
 
-    assertThat(buildTargets, allOf(
-        hasSize(1),
-        contains(
-            hasProperty("additionalParameters",
-                allOf(is(aMapWithSize(1)),
-                    hasEntry("key", "value2"))))));
+    assertThat(
+        buildTargets,
+        allOf(
+            hasSize(1),
+            contains(
+                hasProperty(
+                    "additionalParameters",
+                    allOf(is(aMapWithSize(1)), hasEntry("key", "value2"))))));
   }
 
   @Test
-  public void getBuildTargets_onlyBuildOnComment_multiple_comments_generate_multiple_targets() throws Exception {
-    StashPullRequestComment comment1 = new StashPullRequestComment(1, "DO TEST\np:key1=value1\np:key2=value2");
+  public void getBuildTargets_onlyBuildOnComment_multiple_comments_generate_multiple_targets()
+      throws Exception {
+    StashPullRequestComment comment1 =
+        new StashPullRequestComment(1, "DO TEST\np:key1=value1\np:key2=value2");
     StashPullRequestComment comment2 = new StashPullRequestComment(2, "DO TEST");
     List<StashPullRequestComment> comments = Arrays.asList(comment1, comment2);
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
     when(trigger.getOnlyBuildOnComment()).thenReturn(true);
 
-    Collection<StashPullRequestBuildTarget> buildTargets = stashRepository.getBuildTargets(pullRequest);
+    Collection<StashPullRequestBuildTarget> buildTargets =
+        stashRepository.getBuildTargets(pullRequest);
 
     assertThat(buildTargets, hasSize(2));
-    assertThat(buildTargets, containsInAnyOrder(
-        allOf(
-            hasProperty("additionalParameters", aMapWithSize(2)),
-            hasProperty("additionalParameters", allOf(
-                hasEntry("key1", "value1"),
-                hasEntry("key2", "value2")))),
-        hasProperty("additionalParameters", anEmptyMap())));
+    assertThat(
+        buildTargets,
+        containsInAnyOrder(
+            allOf(
+                hasProperty("additionalParameters", aMapWithSize(2)),
+                hasProperty(
+                    "additionalParameters",
+                    allOf(hasEntry("key1", "value1"), hasEntry("key2", "value2")))),
+            hasProperty("additionalParameters", anEmptyMap())));
   }
 
   @Test
-  public void getBuildTargets_onlyBuildOnComment_skip_if_buildStarted_or_buildFinished_message() throws Exception {
+  public void getBuildTargets_onlyBuildOnComment_skip_if_buildStarted_or_buildFinished_message()
+      throws Exception {
     when(trigger.getOnlyBuildOnComment()).thenReturn(true);
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
     when(project.getFullName()).thenReturn("MyProject");
     StashPullRequestComment comment1 = new StashPullRequestComment(1, "DO TEST\np:key1=value1");
-    comment1
-        .setReplies(
-            Arrays.asList(new StashPullRequestComment("[*BuildStarted* **MyProject**] DEADBEEF into 1BADFACE")));
+    comment1.setReplies(
+        Arrays.asList(
+            new StashPullRequestComment("[*BuildStarted* **MyProject**] DEADBEEF into 1BADFACE")));
     StashPullRequestComment comment2 = new StashPullRequestComment(2, "DO TEST\np:key2=value2");
-    comment2
-        .setReplies(
-            Arrays.asList(new StashPullRequestComment("[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE")));
+    comment2.setReplies(
+        Arrays.asList(
+            new StashPullRequestComment("[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE")));
     StashPullRequestComment comment3 = new StashPullRequestComment(2, "DO TEST\np:key3=value3");
     List<StashPullRequestComment> comments = Arrays.asList(comment1, comment2, comment3);
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
 
-    Collection<StashPullRequestBuildTarget> buildTargets = stashRepository.getBuildTargets(pullRequest);
+    Collection<StashPullRequestBuildTarget> buildTargets =
+        stashRepository.getBuildTargets(pullRequest);
 
-    assertThat(buildTargets, allOf(
-        hasSize(1),
-        contains(
-            hasProperty("additionalParameters",
-                hasEntry("key3", "value3")))));
+    assertThat(
+        buildTargets,
+        allOf(
+            hasSize(1), contains(hasProperty("additionalParameters", hasEntry("key3", "value3")))));
   }
 
   @Test
@@ -448,9 +463,11 @@ public class StashRepositoryTest {
     when(trigger.getDeletePreviousBuildFinishComments()).thenReturn(true);
     when(trigger.getStashHost()).thenReturn("StashHost");
     when(project.getFullName()).thenReturn("MyProject");
-    List<StashPullRequestComment> comments = Arrays.asList(
-        new StashPullRequestComment(2, "User comment"),
-        new StashPullRequestComment(1, "[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE"));
+    List<StashPullRequestComment> comments =
+        Arrays.asList(
+            new StashPullRequestComment(2, "User comment"),
+            new StashPullRequestComment(
+                1, "[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE"));
     StashPullRequestComment response = new StashPullRequestComment(3, null);
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
     when(stashApiClient.postPullRequestComment(any(), any())).thenReturn(response);
@@ -471,8 +488,9 @@ public class StashRepositoryTest {
     doThrow(new StashApiException("Cannot Delete"))
         .when(stashApiClient)
         .deletePullRequestComment(any(), any());
-    List<StashPullRequestComment> comments = Collections
-        .singletonList(new StashPullRequestComment(1, "[*BuildFinished* **MyProject**] DEF2 into DEF1"));
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(
+            new StashPullRequestComment(1, "[*BuildFinished* **MyProject**] DEF2 into DEF1"));
     StashPullRequestComment response = new StashPullRequestComment(2, null);
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
     when(stashApiClient.postPullRequestComment(any(), any())).thenReturn(response);
@@ -538,7 +556,8 @@ public class StashRepositoryTest {
     prParameters.put("param1", "param1_value");
     cause = makeCause(prParameters);
 
-    ParameterDefinition parameterDefinition = new StringParameterDefinition("param1", "param1_default");
+    ParameterDefinition parameterDefinition =
+        new StringParameterDefinition("param1", "param1_default");
     jobSetup(parameterDefinition);
 
     List<ParameterValue> parameters = captureBuildParameters();
@@ -552,7 +571,8 @@ public class StashRepositoryTest {
     prParameters.put("param2", "param2_value");
     cause = makeCause(prParameters);
 
-    ParameterDefinition parameterDefinition = new StringParameterDefinition("param1", "param1_default");
+    ParameterDefinition parameterDefinition =
+        new StringParameterDefinition("param1", "param1_default");
     jobSetup(parameterDefinition);
 
     List<ParameterValue> parameters = captureBuildParameters();
