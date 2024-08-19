@@ -14,6 +14,22 @@ This plugin was inspired by the GitHub & BitBucket pull request builder plugins.
 - Jenkins 2.60.3 or higher.
 - [Git Plugin](https://wiki.jenkins-ci.org/display/JENKINS/Git+Plugin)
 
+## Build and deploy instructions
+
+Run Maven package from the root directory.
+```
+mvn package
+```
+This will generate a `.hpi` file in the `target` directory. To deploy the plugin, go to Jenkins Dashboard > Manage Jenkins > Plugins > Advanced settings, choose the `.hpi` file and click `Deploy`. Open `[Jenkins URL]/restart` to restart jenkins for the changes to take effect.
+
+## Testing instructions
+
+```
+mvn clean
+mvn compile
+mvn test
+```
+
 ## Environment variables
 
 The plugin provides following environment variables to the build:
