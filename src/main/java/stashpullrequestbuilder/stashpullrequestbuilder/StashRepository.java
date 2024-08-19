@@ -154,7 +154,8 @@ public class StashRepository {
     return startMatcher.find() || finishMatcher.find();
   }
 
-  public Collection<StashPullRequestBuildTarget> getBuildTargets(StashPullRequestResponseValue pullRequest) {
+  public Collection<StashPullRequestBuildTarget> getBuildTargets(
+      StashPullRequestResponseValue pullRequest) {
     if (shouldSkip(pullRequest)) {
       return new ArrayList<>();
     }
@@ -197,71 +198,74 @@ public class StashRepository {
       if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
         if (comment.getReplies() != null
             && !comment.getReplies().isEmpty()
-            && comment.getReplies().stream().anyMatch(reply -> isStartOrFinishMessage(reply.getText()))) {
+            && comment.getReplies().stream()
+                .anyMatch(reply -> isStartOrFinishMessage(reply.getText()))) {
           continue;
         }
 
         buildTargets.add(
-            new StashPullRequestBuildTarget(pullRequest, getAdditionalParameters(comment), comment.getCommentId()));
+            new StashPullRequestBuildTarget(
+                pullRequest, getAdditionalParameters(comment), comment.getCommentId()));
       }
     }
     return buildTargets;
   }
 
   public Collection<StashPullRequestBuildTarget> getBuildTargetsWithoutOnlyBuildOnCommentLogic(
-    StashPullRequestResponseValue pullRequest, List<StashPullRequestComment> comments) {
-      String sourceCommit = pullRequest.getFromRef().getLatestCommit();
-      String destinationCommit = pullRequest.getToRef().getLatestCommit();
+      StashPullRequestResponseValue pullRequest, List<StashPullRequestComment> comments) {
+    String sourceCommit = pullRequest.getFromRef().getLatestCommit();
+    String destinationCommit = pullRequest.getToRef().getLatestCommit();
 
-      // Start with most recent comments
-      comments.sort(Comparator.reverseOrder());
+    // Start with most recent comments
+    comments.sort(Comparator.reverseOrder());
 
-      for (StashPullRequestComment comment : comments) {
-        String content = comment.getText();
-        if (StringUtils.isEmpty(content)) {
-          continue;
+    for (StashPullRequestComment comment : comments) {
+      String content = comment.getText();
+      if (StringUtils.isEmpty(content)) {
+        continue;
+      }
+
+      // These will match any start or finish message -- need to check commits
+      String escapedBuildName = Pattern.quote(job.getDisplayName());
+      String project_build_start = String.format(BUILD_START_REGEX, escapedBuildName);
+      String project_build_finished = String.format(BUILD_FINISH_REGEX, escapedBuildName);
+      Matcher startMatcher =
+          Pattern.compile(project_build_start, Pattern.CASE_INSENSITIVE).matcher(content);
+      Matcher finishMatcher =
+          Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
+
+      if (isStartOrFinishMessage(content)) {
+        String sourceCommitMatch;
+        String destinationCommitMatch;
+
+        if (startMatcher.find(0)) {
+          sourceCommitMatch = startMatcher.group(1);
+          destinationCommitMatch = startMatcher.group(2);
+        } else {
+          sourceCommitMatch = finishMatcher.group(1);
+          destinationCommitMatch = finishMatcher.group(2);
         }
 
-        // These will match any start or finish message -- need to check commits
-        String escapedBuildName = Pattern.quote(job.getDisplayName());
-        String project_build_start = String.format(BUILD_START_REGEX, escapedBuildName);
-        String project_build_finished = String.format(BUILD_FINISH_REGEX, escapedBuildName);
-        Matcher startMatcher =
-            Pattern.compile(project_build_start, Pattern.CASE_INSENSITIVE).matcher(content);
-        Matcher finishMatcher =
-            Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
-
-        if (isStartOrFinishMessage(content)) {
-          String sourceCommitMatch;
-          String destinationCommitMatch;
-
-          if (startMatcher.find(0)) {
-            sourceCommitMatch = startMatcher.group(1);
-            destinationCommitMatch = startMatcher.group(2);
-          } else {
-            sourceCommitMatch = finishMatcher.group(1);
-            destinationCommitMatch = finishMatcher.group(2);
+        // first check source commit -- if it doesn't match, just move on. If it does,
+        // investigate further.
+        if (sourceCommitMatch.equalsIgnoreCase(sourceCommit)) {
+          // if we're checking destination commits, and if this doesn't match, then move on.
+          if (this.trigger.getCheckDestinationCommit()
+              && (!destinationCommitMatch.equalsIgnoreCase(destinationCommit))) {
+            continue;
           }
-
-          // first check source commit -- if it doesn't match, just move on. If it does,
-          // investigate further.
-          if (sourceCommitMatch.equalsIgnoreCase(sourceCommit)) {
-            // if we're checking destination commits, and if this doesn't match, then move on.
-            if (this.trigger.getCheckDestinationCommit()
-                && (!destinationCommitMatch.equalsIgnoreCase(destinationCommit))) {
-              continue;
-            }
-            return new ArrayList<>();
-          }
-        }
-        if (isSkipBuild(content)) {
           return new ArrayList<>();
         }
-        if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
-          return Collections.singletonList(new StashPullRequestBuildTarget(pullRequest, getAdditionalParameters(comment)));
-        }
       }
-      return Collections.singletonList(new StashPullRequestBuildTarget(pullRequest));
+      if (isSkipBuild(content)) {
+        return new ArrayList<>();
+      }
+      if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
+        return Collections.singletonList(
+            new StashPullRequestBuildTarget(pullRequest, getAdditionalParameters(comment)));
+      }
+    }
+    return Collections.singletonList(new StashPullRequestBuildTarget(pullRequest));
   }
 
   /**
@@ -271,7 +275,8 @@ public class StashRepository {
    * @return comment ID
    * @throws StashApiException if posting the comment fails
    */
-  private String postBuildStartCommentTo(StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId)
+  private String postBuildStartCommentTo(
+      StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId)
       throws StashApiException {
     String sourceCommit = pullRequest.getFromRef().getLatestCommit();
     String destinationCommit = pullRequest.getToRef().getLatestCommit();
@@ -279,7 +284,8 @@ public class StashRepository {
         format(BUILD_START_MARKER, job.getDisplayName(), sourceCommit, destinationCommit);
     StashPullRequestComment commentResponse;
     if (buildCommandCommentId != null) {
-      commentResponse = this.client.postPullRequestCommentReply(
+      commentResponse =
+          this.client.postPullRequestCommentReply(
               pullRequest.getId(), comment, buildCommandCommentId);
     } else {
       commentResponse = this.client.postPullRequestComment(pullRequest.getId(), comment);
@@ -543,8 +549,7 @@ public class StashRepository {
     // scheduling another build for the pull request unnecessarily.
     try {
       if (buildCommandCommentId != null) {
-        this.client.postPullRequestCommentReply(
-            pullRequestId, comment, buildCommandCommentId);
+        this.client.postPullRequestCommentReply(pullRequestId, comment, buildCommandCommentId);
       } else {
         this.client.postPullRequestComment(pullRequestId, comment);
       }

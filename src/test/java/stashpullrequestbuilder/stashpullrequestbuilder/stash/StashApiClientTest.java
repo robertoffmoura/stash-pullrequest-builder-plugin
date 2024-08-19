@@ -396,7 +396,8 @@ public class StashApiClientTest {
     String commentString = "Some comment";
     Integer parentCommentId = 1;
 
-    StashPullRequestComment comment = client.postPullRequestCommentReply(pullRequestId, commentString, parentCommentId);
+    StashPullRequestComment comment =
+        client.postPullRequestCommentReply(pullRequestId, commentString, parentCommentId);
     assertThat(comment.getCommentId(), is(234));
     assertThat(comment.getText(), is("Build started"));
 
@@ -407,7 +408,12 @@ public class StashApiClientTest {
             .withHeader("Connection", equalTo("close"))
             .withHeader("X-Atlassian-Token", equalTo("no-check"))
             .withRequestBody(
-                equalToJson("{\"text\":\"" + commentString + "\", \"parent\":{\"id\": " + parentCommentId + "}}")));
+                equalToJson(
+                    "{\"text\":\""
+                        + commentString
+                        + "\", \"parent\":{\"id\": "
+                        + parentCommentId
+                        + "}}")));
   }
 
   @Test
