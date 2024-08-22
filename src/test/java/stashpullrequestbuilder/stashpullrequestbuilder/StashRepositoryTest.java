@@ -357,10 +357,13 @@ public class StashRepositoryTest {
   }
 
   @Test
-  public void getBuildTargets_notOnlyBuildOnComment_does_not_build_if_source_commit_does_not_change()
-      throws Exception {
-    List<StashPullRequestComment> comments = Arrays
-        .asList(new StashPullRequestComment(1, "[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE"));
+  public void
+      getBuildTargets_notOnlyBuildOnComment_does_not_build_if_source_commit_does_not_change()
+          throws Exception {
+    List<StashPullRequestComment> comments =
+        Arrays.asList(
+            new StashPullRequestComment(
+                1, "[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE"));
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
     when(project.getFullName()).thenReturn("MyProject");
     when(trigger.getOnlyBuildOnComment()).thenReturn(false);
@@ -372,8 +375,10 @@ public class StashRepositoryTest {
   @Test
   public void getBuildTargets_notOnlyBuildOnComment_builds_if_source_commit_changes()
       throws Exception {
-    List<StashPullRequestComment> comments = Arrays
-        .asList(new StashPullRequestComment(1, "[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE"));
+    List<StashPullRequestComment> comments =
+        Arrays.asList(
+            new StashPullRequestComment(
+                1, "[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE"));
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
     when(project.getFullName()).thenReturn("MyProject");
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
