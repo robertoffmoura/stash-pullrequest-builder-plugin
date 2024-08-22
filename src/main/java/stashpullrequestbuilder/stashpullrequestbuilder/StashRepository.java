@@ -234,7 +234,7 @@ public class StashRepository {
       Matcher finishMatcher =
           Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
 
-      if (isStartOrFinishMessage(content)) {
+      if (startMatcher.find() || finishMatcher.find()) {
         String sourceCommitMatch;
         String destinationCommitMatch;
 

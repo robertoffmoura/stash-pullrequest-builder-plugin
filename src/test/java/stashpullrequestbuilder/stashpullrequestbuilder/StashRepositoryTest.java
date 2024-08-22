@@ -357,6 +357,35 @@ public class StashRepositoryTest {
   }
 
   @Test
+  public void getBuildTargets_notOnlyBuildOnComment_does_not_build_if_source_commit_does_not_change()
+      throws Exception {
+    List<StashPullRequestComment> comments = Arrays
+        .asList(new StashPullRequestComment(1, "[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+    when(project.getFullName()).thenReturn("MyProject");
+    when(trigger.getOnlyBuildOnComment()).thenReturn(false);
+    pullRequest.getFromRef().setLatestCommit("DEADBEEF");
+
+    assertThat(stashRepository.getBuildTargets(pullRequest), empty());
+  }
+
+  @Test
+  public void getBuildTargets_notOnlyBuildOnComment_builds_if_source_commit_changes()
+      throws Exception {
+    List<StashPullRequestComment> comments = Arrays
+        .asList(new StashPullRequestComment(1, "[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+    when(project.getFullName()).thenReturn("MyProject");
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getOnlyBuildOnComment()).thenReturn(false);
+    pullRequest.getFromRef().setLatestCommit("F1234ABD");
+
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+  }
+
+  @Test
   public void getBuildTargets_notOnlyBuildOnComment_uses_newest_parameter_definition()
       throws Exception {
     when(trigger.getOnlyBuildOnComment()).thenReturn(false);
