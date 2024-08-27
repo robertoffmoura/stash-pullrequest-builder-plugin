@@ -31,6 +31,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
@@ -50,11 +52,14 @@ public class StashRepository {
       Logger.getLogger(MethodHandles.lookup().lookupClass().getName());
   private static final String BUILD_START_MARKER = "[*BuildStarted* **%s**] %s into %s";
   private static final String BUILD_FINISH_MARKER = "[*BuildFinished* **%s**] %s into %s";
+  private static final String BUILD_CANCEL_MARKER = "[*BuildCanceled* **%s**] %s into %s";
 
   private static final String BUILD_START_REGEX =
       "\\[\\*BuildStarted\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
   private static final String BUILD_FINISH_REGEX =
       "\\[\\*BuildFinished\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
+  private static final String BUILD_CANCEL_REGEX =
+      "\\[\\*BuildCanceled\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
 
   private static final String BUILD_FINISH_SENTENCE =
       BUILD_FINISH_MARKER + " %n%n **[%s](%s)** - Build *&#x0023;%d* which took *%s*";
@@ -141,17 +146,21 @@ public class StashRepository {
     return false;
   }
 
-  private boolean isStartOrFinishMessage(String content) {
-    // These will match any start or finish message -- need to check commits
+  private boolean isStatusMessage(String content) {
     String escapedBuildName = Pattern.quote(job.getDisplayName());
-    String project_build_start = String.format(BUILD_START_REGEX, escapedBuildName);
-    String project_build_finished = String.format(BUILD_FINISH_REGEX, escapedBuildName);
-    Matcher startMatcher =
-        Pattern.compile(project_build_start, Pattern.CASE_INSENSITIVE).matcher(content);
-    Matcher finishMatcher =
-        Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
-
-    return startMatcher.find() || finishMatcher.find();
+    String[] patterns = {
+        BUILD_START_REGEX,
+        BUILD_FINISH_REGEX,
+        BUILD_CANCEL_REGEX
+    };
+    for (String pattern : patterns) {
+      String buildStatusMessage = String.format(pattern, escapedBuildName);
+      Matcher matcher = Pattern.compile(buildStatusMessage, Pattern.CASE_INSENSITIVE).matcher(content);
+      if (matcher.find()) {
+          return true;
+      }
+    }
+    return false;
   }
 
   public Collection<StashPullRequestBuildTarget> getBuildTargets(
@@ -178,14 +187,35 @@ public class StashRepository {
     }
 
     boolean isOnlyBuildOnComment = trigger.getOnlyBuildOnComment();
-    if (isOnlyBuildOnComment) {
-      return getBuildTargetsWithOnlyBuildOnCommentLogic(pullRequest, comments);
-    } else {
+    if (!isOnlyBuildOnComment) {
       return getBuildTargetsWithoutOnlyBuildOnCommentLogic(pullRequest, comments);
     }
+    Collection<StashPullRequestBuildTarget> buildTargets = getBuildTargetsWithOnlyBuildOnCommentLogic(pullRequest,
+        comments);
+
+    if (!trigger.getCancelOutdatedJobsEnabled()) {
+      return buildTargets;
+    }
+    List<StashPullRequestBuildTarget> buildTargetsList = new ArrayList<>(buildTargets);
+    buildTargetsList.sort(Comparator.comparing(StashPullRequestBuildTarget::getBuildCommandCommentId).reversed());
+    Collection<StashPullRequestBuildTarget> buildTargetsToKeep = buildTargetsList.stream().limit(1)
+        .collect(Collectors.toList());
+    Collection<StashPullRequestBuildTarget> buildTargetsToCancel = buildTargetsList.stream().skip(1)
+        .collect(Collectors.toList());
+    try {
+      for (StashPullRequestBuildTarget buildTarget : buildTargetsToCancel) {
+        postBuildCancelComment(pullRequest, buildTarget.getBuildCommandCommentId());
+      }
+    } catch (StashApiException e) {
+      pollLog.log("Cannot post \\\"BuildCanceled\\\" comment for PR #{}, not building", pullRequest.getId(), e);
+      logger.log(Level.INFO, format("%s: cannot post Build Cancel comment for pull request %s, not building",
+          job.getFullName(), pullRequest.getId()), e);
+      return new ArrayList<>();
+    }
+    return buildTargetsToKeep;
   }
 
-  public Collection<StashPullRequestBuildTarget> getBuildTargetsWithOnlyBuildOnCommentLogic(
+  private Collection<StashPullRequestBuildTarget> getBuildTargetsWithOnlyBuildOnCommentLogic(
       StashPullRequestResponseValue pullRequest, List<StashPullRequestComment> comments) {
     List<StashPullRequestBuildTarget> buildTargets = new ArrayList<>();
 
@@ -199,7 +229,7 @@ public class StashRepository {
         if (comment.getReplies() != null
             && !comment.getReplies().isEmpty()
             && comment.getReplies().stream()
-                .anyMatch(reply -> isStartOrFinishMessage(reply.getText()))) {
+                .anyMatch(reply -> isStatusMessage(reply.getText()))) {
           continue;
         }
 
@@ -211,7 +241,7 @@ public class StashRepository {
     return buildTargets;
   }
 
-  public Collection<StashPullRequestBuildTarget> getBuildTargetsWithoutOnlyBuildOnCommentLogic(
+  private Collection<StashPullRequestBuildTarget> getBuildTargetsWithoutOnlyBuildOnCommentLogic(
       StashPullRequestResponseValue pullRequest, List<StashPullRequestComment> comments) {
     String sourceCommit = pullRequest.getFromRef().getLatestCommit();
     String destinationCommit = pullRequest.getToRef().getLatestCommit();
@@ -275,21 +305,36 @@ public class StashRepository {
    * @return comment ID
    * @throws StashApiException if posting the comment fails
    */
-  private String postBuildStartCommentTo(
+  private String postBuildStartComment(
       StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId)
+      throws StashApiException {
+    return postBuildStatusComment(pullRequest, buildCommandCommentId, BUILD_START_MARKER);
+  }
+
+  /**
+   * Post "BuildCanceled" comment to Bitbucket Server
+   *
+   * @param pullRequest pull request
+   * @return comment ID
+   * @throws StashApiException if posting the comment fails
+   */
+  private String postBuildCancelComment(
+      StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId)
+      throws StashApiException {
+    return postBuildStatusComment(pullRequest, buildCommandCommentId, BUILD_CANCEL_MARKER);
+  }
+
+  private String postBuildStatusComment(
+      StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId, String marker)
       throws StashApiException {
     String sourceCommit = pullRequest.getFromRef().getLatestCommit();
     String destinationCommit = pullRequest.getToRef().getLatestCommit();
     String comment =
-        format(BUILD_START_MARKER, job.getDisplayName(), sourceCommit, destinationCommit);
+        format(marker, job.getDisplayName(), sourceCommit, destinationCommit);
     StashPullRequestComment commentResponse;
-    if (buildCommandCommentId != null) {
-      commentResponse =
-          this.client.postPullRequestCommentReply(
-              pullRequest.getId(), comment, buildCommandCommentId);
-    } else {
-      commentResponse = this.client.postPullRequestComment(pullRequest.getId(), comment);
-    }
+    commentResponse =
+        this.client.postPullRequestComment(
+            pullRequest.getId(), comment, buildCommandCommentId);
     return commentResponse.getCommentId().toString();
   }
 
@@ -450,7 +495,7 @@ public class StashRepository {
     // would trigger the build again and again, wasting Jenkins resources.
     String buildStartCommentId;
     try {
-      buildStartCommentId = postBuildStartCommentTo(pullRequest, buildCommandCommentId);
+      buildStartCommentId = postBuildStartComment(pullRequest, buildCommandCommentId);
     } catch (StashApiException e) {
       pollLog.log(
           "Cannot post \"BuildStarted\" comment for PR #{}, not building", pullRequest.getId(), e);
@@ -548,11 +593,7 @@ public class StashRepository {
     // Post the "Build Finished" comment. Failure to post it can lead to
     // scheduling another build for the pull request unnecessarily.
     try {
-      if (buildCommandCommentId != null) {
-        this.client.postPullRequestCommentReply(pullRequestId, comment, buildCommandCommentId);
-      } else {
-        this.client.postPullRequestComment(pullRequestId, comment);
-      }
+      this.client.postPullRequestComment(pullRequestId, comment, buildCommandCommentId);
     } catch (StashApiException e) {
       logger.log(
           Level.WARNING,

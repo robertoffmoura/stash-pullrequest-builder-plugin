@@ -157,25 +157,19 @@ public class StashApiClient {
   @Nullable
   public StashPullRequestComment postPullRequestComment(String pullRequestId, String comment)
       throws StashApiException {
-    String path = pullRequestPath(pullRequestId) + "/comments";
-    ObjectNode payload = mapper.getNodeFactory().objectNode();
-    payload.put("text", comment);
-    String response = postRequest(path, payload);
-    try {
-      return mapper.readValue(response, StashPullRequestComment.class);
-    } catch (IOException e) {
-      throw new StashApiException("Cannot parse reply after comment posting", e);
-    }
+    return postPullRequestComment(pullRequestId, comment, null);
   }
 
   @Nullable
-  public StashPullRequestComment postPullRequestCommentReply(
-      String pullRequestId, String comment, Integer parentCommentId) throws StashApiException {
+  public StashPullRequestComment postPullRequestComment(String pullRequestId, String comment, Integer replyCommentId)
+      throws StashApiException {
     String path = pullRequestPath(pullRequestId) + "/comments";
     ObjectNode payload = mapper.getNodeFactory().objectNode();
     payload.put("text", comment);
-    ObjectNode parentValue = payload.putObject("parent");
-    parentValue.put("id", parentCommentId);
+    if (replyCommentId != null) {
+      ObjectNode parentValue = payload.putObject("parent");
+      parentValue.put("id", replyCommentId);
+    }
     String response = postRequest(path, payload);
     try {
       return mapper.readValue(response, StashPullRequestComment.class);

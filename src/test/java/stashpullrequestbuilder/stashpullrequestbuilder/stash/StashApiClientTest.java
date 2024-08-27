@@ -397,7 +397,7 @@ public class StashApiClientTest {
     Integer parentCommentId = 1;
 
     StashPullRequestComment comment =
-        client.postPullRequestCommentReply(pullRequestId, commentString, parentCommentId);
+        client.postPullRequestComment(pullRequestId, commentString, parentCommentId);
     assertThat(comment.getCommentId(), is(234));
     assertThat(comment.getText(), is("Build started"));
 

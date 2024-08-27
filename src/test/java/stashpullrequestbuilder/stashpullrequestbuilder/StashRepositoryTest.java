@@ -16,26 +16,32 @@ import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import hudson.model.BooleanParameterDefinition;
+import hudson.model.Executor;
 import hudson.model.FileParameterDefinition;
+import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.ParameterDefinition;
 import hudson.model.ParameterValue;
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
 import hudson.model.Queue;
+import hudson.model.Result;
 import hudson.model.StringParameterDefinition;
 import hudson.model.StringParameterValue;
+import hudson.util.RunList;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -465,10 +471,9 @@ public class StashRepositoryTest {
   }
 
   @Test
-  public void getBuildTargets_onlyBuildOnComment_skip_if_buildStarted_or_buildFinished_message()
+  public void getBuildTargets_onlyBuildOnComment_skip_if_build_status_message()
       throws Exception {
     when(trigger.getOnlyBuildOnComment()).thenReturn(true);
-    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
     when(project.getFullName()).thenReturn("MyProject");
     StashPullRequestComment comment1 = new StashPullRequestComment(1, "DO TEST\np:key1=value1");
@@ -480,7 +485,11 @@ public class StashRepositoryTest {
         Arrays.asList(
             new StashPullRequestComment("[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE")));
     StashPullRequestComment comment3 = new StashPullRequestComment(2, "DO TEST\np:key3=value3");
-    List<StashPullRequestComment> comments = Arrays.asList(comment1, comment2, comment3);
+    comment3.setReplies(
+        Arrays.asList(
+            new StashPullRequestComment("[*BuildCanceled* **MyProject**] DEADBEEF into 1BADFACE")));
+    StashPullRequestComment comment4 = new StashPullRequestComment(2, "DO TEST\np:key4=value4");
+    List<StashPullRequestComment> comments = Arrays.asList(comment1, comment2, comment3, comment4);
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
 
     Collection<StashPullRequestBuildTarget> buildTargets =
@@ -489,7 +498,55 @@ public class StashRepositoryTest {
     assertThat(
         buildTargets,
         allOf(
-            hasSize(1), contains(hasProperty("additionalParameters", hasEntry("key3", "value3")))));
+            hasSize(1), contains(hasProperty("additionalParameters", hasEntry("key4", "value4")))));
+  }
+
+  @Test
+  public void getBuildTargets_onlyBuildOnComment_cancelOutdatedJobsEnabled_multiple_comments_generate_single_target()
+      throws Exception {
+    StashPullRequestComment comment1 =
+        new StashPullRequestComment(1, "DO TEST\np:key1=value1");
+    StashPullRequestComment comment2 =
+        new StashPullRequestComment(2, "DO TEST\np:key2=value2");
+    List<StashPullRequestComment> comments = Arrays.asList(comment1, comment2);
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+    when(stashApiClient.postPullRequestComment(any(), any(), any())).thenReturn(new StashPullRequestComment(3, null));
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(true);
+
+    Collection<StashPullRequestBuildTarget> buildTargets =
+        stashRepository.getBuildTargets(pullRequest);
+
+    assertThat(buildTargets, hasSize(1));
+    assertThat(
+        buildTargets,
+        contains(
+            allOf(
+                hasProperty("additionalParameters", aMapWithSize(1)),
+                hasProperty(
+                    "additionalParameters",
+                    hasEntry("key2", "value2")))
+            ));
+  }
+
+    @Test
+  public void getBuildTargets_onlyBuildOnComment_cancelOutdatedJobsEnabled_posts_build_cancel_comment()
+      throws Exception {
+    StashPullRequestComment comment1 =
+        new StashPullRequestComment(1, "DO TEST\np:key1=value1");
+    StashPullRequestComment comment2 =
+        new StashPullRequestComment(2, "DO TEST\np:key2=value2");
+    List<StashPullRequestComment> comments = Arrays.asList(comment1, comment2);
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+    when(stashApiClient.postPullRequestComment(any(), any(), any())).thenReturn(new StashPullRequestComment(3, null));
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(true);
+
+    stashRepository.getBuildTargets(pullRequest);
+
+    verify(stashApiClient).postPullRequestComment(any(), argThat(containsString("BuildCanceled")), eq(1));
   }
 
   @Test
@@ -504,13 +561,74 @@ public class StashRepositoryTest {
                 1, "[*BuildFinished* **MyProject**] DEADBEEF into 1BADFACE"));
     StashPullRequestComment response = new StashPullRequestComment(3, null);
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
-    when(stashApiClient.postPullRequestComment(any(), any())).thenReturn(response);
+    when(stashApiClient.postPullRequestComment(any(), any(), any())).thenReturn(response);
 
     pullRequest.setId("123");
     stashRepository.addFutureBuildTask(new StashPullRequestBuildTarget(pullRequest));
 
     verify(stashApiClient, times(1)).deletePullRequestComment(eq("123"), eq("1"));
     verify(stashApiClient, times(0)).deletePullRequestComment(eq("123"), eq("2"));
+  }
+
+  @Test
+  public void addFutureBuildTasks_removes_outdated_jobs_if_enabled() throws Exception {
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(true);
+    when(trigger.getStashHost()).thenReturn("StashHost");
+    when(project.getFullName()).thenReturn("MyProject");
+    StashPullRequestComment response = new StashPullRequestComment(3, null);
+    when(stashApiClient.postPullRequestComment(any(), any(), any())).thenReturn(response);
+
+    stashRepository.addFutureBuildTask(new StashPullRequestBuildTarget(pullRequest));
+    stashRepository.addFutureBuildTask(new StashPullRequestBuildTarget(pullRequest));
+
+    assertThat(Jenkins.getInstance().getQueue().getItems(), is(arrayWithSize(1)));
+  }
+
+  @Test
+  public void addFutureBuildTasks_does_not_remove_old_jobs_if_cancelOutdatedJobs_is_disabled() throws Exception {
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+    when(trigger.getStashHost()).thenReturn("StashHost");
+    when(project.getFullName()).thenReturn("MyProject");
+    StashPullRequestComment response = new StashPullRequestComment(3, null);
+    when(stashApiClient.postPullRequestComment(any(), any(), any())).thenReturn(response);
+
+    stashRepository.addFutureBuildTask(new StashPullRequestBuildTarget(pullRequest));
+    stashRepository.addFutureBuildTask(new StashPullRequestBuildTarget(pullRequest));
+
+    assertThat(Jenkins.getInstance().getQueue().getItems(), is(arrayWithSize(2)));
+  }
+
+ @Test
+  public void addFutureBuildTasks_cancels_running_job_if_enabled() throws Exception {
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(true);
+    when(trigger.getStashHost()).thenReturn("StashHost");
+    StashPullRequestComment response = new StashPullRequestComment(3, null);
+    when(stashApiClient.postPullRequestComment(any(), any(), any())).thenReturn(response);
+    FreeStyleBuild runningBuild = mock(FreeStyleBuild.class);
+    when(runningBuild.isBuilding()).thenReturn(true);
+    when(runningBuild.getCauses()).thenReturn(Arrays.asList(
+        new StashCause("", null, null, null, null, null, null, null, null, null, null, null, null, null, null)));
+    when(project.getBuilds()).thenReturn(RunList.fromRuns(Arrays.asList(runningBuild)));
+    Executor executor = mock(Executor.class);
+    when(runningBuild.getExecutor()).thenReturn(executor);
+
+    stashRepository.addFutureBuildTask(new StashPullRequestBuildTarget(pullRequest));
+
+    verify(executor).interrupt(Result.ABORTED);
+    assertThat(Jenkins.getInstance().getQueue().getItems(), is(arrayWithSize(1)));
+  }
+
+   @Test
+  public void addFutureBuildTasks_does_not_cancel_running_job_if_cancelOutdatedJobs_is_disabled() throws Exception {
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+    when(trigger.getStashHost()).thenReturn("StashHost");
+    StashPullRequestComment response = new StashPullRequestComment(3, null);
+    when(stashApiClient.postPullRequestComment(any(), any(), any())).thenReturn(response);
+
+    stashRepository.addFutureBuildTask(new StashPullRequestBuildTarget(pullRequest));
+
+    verify(project, never()).getBuilds();
+    assertThat(Jenkins.getInstance().getQueue().getItems(), is(arrayWithSize(1)));
   }
 
   @Test
@@ -527,7 +645,7 @@ public class StashRepositoryTest {
             new StashPullRequestComment(1, "[*BuildFinished* **MyProject**] DEF2 into DEF1"));
     StashPullRequestComment response = new StashPullRequestComment(2, null);
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
-    when(stashApiClient.postPullRequestComment(any(), any())).thenReturn(response);
+    when(stashApiClient.postPullRequestComment(any(), any(), any())).thenReturn(response);
 
     stashRepository.addFutureBuildTask(new StashPullRequestBuildTarget(pullRequest));
 
@@ -537,7 +655,7 @@ public class StashRepositoryTest {
   @Test
   public void addFutureBuildTasks_doesnt_schedule_build_if_postPullRequestComment_throws()
       throws Exception {
-    when(stashApiClient.postPullRequestComment(any(), any()))
+    when(stashApiClient.postPullRequestComment(any(), any(), any()))
         .thenThrow(new StashApiException("Cannot Post"));
 
     stashRepository.addFutureBuildTask(new StashPullRequestBuildTarget(pullRequest));
@@ -567,7 +685,7 @@ public class StashRepositoryTest {
     when(stashApiClient.getPullRequestComments(any(), any(), any()))
         .thenReturn(Collections.emptyList());
     StashPullRequestComment response = new StashPullRequestComment(1, null);
-    when(stashApiClient.postPullRequestComment(any(), any())).thenReturn(response);
+    when(stashApiClient.postPullRequestComment(any(), any(), any())).thenReturn(response);
 
     stashRepository.pollRepository();
 
