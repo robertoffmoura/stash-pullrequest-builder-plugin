@@ -159,7 +159,7 @@ public class StashRepository {
     return false;
   }
 
-  public Collection<StashPullRequestBuildTarget> getBuildTargets(
+  public List<StashPullRequestBuildTarget> getBuildTargets(
       StashPullRequestResponseValue pullRequest) {
     if (shouldSkip(pullRequest)) {
       return new ArrayList<>();
@@ -186,19 +186,18 @@ public class StashRepository {
     if (!isOnlyBuildOnComment) {
       return getBuildTargetsWithoutOnlyBuildOnCommentLogic(pullRequest, comments);
     }
-    Collection<StashPullRequestBuildTarget> buildTargets =
+    List<StashPullRequestBuildTarget> buildTargets =
         getBuildTargetsWithOnlyBuildOnCommentLogic(pullRequest, comments);
 
     if (!trigger.getCancelOutdatedJobsEnabled()) {
       return buildTargets;
     }
-    List<StashPullRequestBuildTarget> buildTargetsList = new ArrayList<>(buildTargets);
-    buildTargetsList.sort(
+    buildTargets.sort(
         Comparator.comparing(StashPullRequestBuildTarget::getBuildCommandCommentId).reversed());
-    Collection<StashPullRequestBuildTarget> buildTargetsToKeep =
-        buildTargetsList.stream().limit(1).collect(Collectors.toList());
-    Collection<StashPullRequestBuildTarget> buildTargetsToCancel =
-        buildTargetsList.stream().skip(1).collect(Collectors.toList());
+    List<StashPullRequestBuildTarget> buildTargetsToKeep =
+        buildTargets.stream().limit(1).collect(Collectors.toList());
+    List<StashPullRequestBuildTarget> buildTargetsToCancel =
+        buildTargets.stream().skip(1).collect(Collectors.toList());
     try {
       for (StashPullRequestBuildTarget buildTarget : buildTargetsToCancel) {
         postBuildCancelComment(pullRequest, buildTarget.getBuildCommandCommentId());
@@ -219,9 +218,12 @@ public class StashRepository {
     return buildTargetsToKeep;
   }
 
-  private Collection<StashPullRequestBuildTarget> getBuildTargetsWithOnlyBuildOnCommentLogic(
+  private List<StashPullRequestBuildTarget> getBuildTargetsWithOnlyBuildOnCommentLogic(
       StashPullRequestResponseValue pullRequest, List<StashPullRequestComment> comments) {
     List<StashPullRequestBuildTarget> buildTargets = new ArrayList<>();
+
+    // Start with least recent comments
+    comments.sort(Comparator.naturalOrder());
 
     for (StashPullRequestComment comment : comments) {
       String content = comment.getText();
@@ -244,7 +246,7 @@ public class StashRepository {
     return buildTargets;
   }
 
-  private Collection<StashPullRequestBuildTarget> getBuildTargetsWithoutOnlyBuildOnCommentLogic(
+  private List<StashPullRequestBuildTarget> getBuildTargetsWithoutOnlyBuildOnCommentLogic(
       StashPullRequestResponseValue pullRequest, List<StashPullRequestComment> comments) {
     String sourceCommit = pullRequest.getFromRef().getLatestCommit();
     String destinationCommit = pullRequest.getToRef().getLatestCommit();

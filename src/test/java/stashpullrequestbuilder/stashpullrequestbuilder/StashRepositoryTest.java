@@ -6,7 +6,6 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.emptyArray;
@@ -453,20 +452,40 @@ public class StashRepositoryTest {
     when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
     when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
     when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
 
-    Collection<StashPullRequestBuildTarget> buildTargets =
-        stashRepository.getBuildTargets(pullRequest);
+    List<StashPullRequestBuildTarget> buildTargets = stashRepository.getBuildTargets(pullRequest);
 
     assertThat(buildTargets, hasSize(2));
     assertThat(
-        buildTargets,
-        containsInAnyOrder(
-            allOf(
-                hasProperty("additionalParameters", aMapWithSize(2)),
-                hasProperty(
-                    "additionalParameters",
-                    allOf(hasEntry("key1", "value1"), hasEntry("key2", "value2")))),
-            hasProperty("additionalParameters", anEmptyMap())));
+        buildTargets.get(0),
+        allOf(
+            hasProperty("additionalParameters", aMapWithSize(2)),
+            hasProperty(
+                "additionalParameters",
+                allOf(hasEntry("key1", "value1"), hasEntry("key2", "value2")))));
+    assertThat(buildTargets.get(1), hasProperty("additionalParameters", anEmptyMap()));
+  }
+
+  @Test
+  public void
+      getBuildTargets_onlyBuildOnComment_cancelOutdatedJobsDisabled_generates_targets_in_comment_id_order()
+          throws Exception {
+    StashPullRequestComment comment1 = new StashPullRequestComment(1, "DO TEST\np:key1=value1");
+    StashPullRequestComment comment2 = new StashPullRequestComment(2, "DO TEST\np:key2=value2");
+    List<StashPullRequestComment> comments = Arrays.asList(comment2, comment1);
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+
+    List<StashPullRequestBuildTarget> buildTargets = stashRepository.getBuildTargets(pullRequest);
+
+    assertThat(buildTargets, hasSize(2));
+    assertThat(
+        buildTargets.get(0), hasProperty("additionalParameters", hasEntry("key1", "value1")));
+    assertThat(
+        buildTargets.get(1), hasProperty("additionalParameters", hasEntry("key2", "value2")));
   }
 
   @Test
