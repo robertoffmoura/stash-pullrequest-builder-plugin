@@ -161,8 +161,8 @@ public class StashApiClient {
   }
 
   @Nullable
-  public StashPullRequestComment postPullRequestComment(String pullRequestId, String comment, Integer replyCommentId)
-      throws StashApiException {
+  public StashPullRequestComment postPullRequestComment(
+      String pullRequestId, String comment, Integer replyCommentId) throws StashApiException {
     String path = pullRequestPath(pullRequestId) + "/comments";
     ObjectNode payload = mapper.getNodeFactory().objectNode();
     payload.put("text", comment);

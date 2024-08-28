@@ -32,7 +32,6 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
@@ -148,16 +147,13 @@ public class StashRepository {
 
   private boolean isStatusMessage(String content) {
     String escapedBuildName = Pattern.quote(job.getDisplayName());
-    String[] patterns = {
-        BUILD_START_REGEX,
-        BUILD_FINISH_REGEX,
-        BUILD_CANCEL_REGEX
-    };
+    String[] patterns = {BUILD_START_REGEX, BUILD_FINISH_REGEX, BUILD_CANCEL_REGEX};
     for (String pattern : patterns) {
       String buildStatusMessage = String.format(pattern, escapedBuildName);
-      Matcher matcher = Pattern.compile(buildStatusMessage, Pattern.CASE_INSENSITIVE).matcher(content);
+      Matcher matcher =
+          Pattern.compile(buildStatusMessage, Pattern.CASE_INSENSITIVE).matcher(content);
       if (matcher.find()) {
-          return true;
+        return true;
       }
     }
     return false;
@@ -190,26 +186,34 @@ public class StashRepository {
     if (!isOnlyBuildOnComment) {
       return getBuildTargetsWithoutOnlyBuildOnCommentLogic(pullRequest, comments);
     }
-    Collection<StashPullRequestBuildTarget> buildTargets = getBuildTargetsWithOnlyBuildOnCommentLogic(pullRequest,
-        comments);
+    Collection<StashPullRequestBuildTarget> buildTargets =
+        getBuildTargetsWithOnlyBuildOnCommentLogic(pullRequest, comments);
 
     if (!trigger.getCancelOutdatedJobsEnabled()) {
       return buildTargets;
     }
     List<StashPullRequestBuildTarget> buildTargetsList = new ArrayList<>(buildTargets);
-    buildTargetsList.sort(Comparator.comparing(StashPullRequestBuildTarget::getBuildCommandCommentId).reversed());
-    Collection<StashPullRequestBuildTarget> buildTargetsToKeep = buildTargetsList.stream().limit(1)
-        .collect(Collectors.toList());
-    Collection<StashPullRequestBuildTarget> buildTargetsToCancel = buildTargetsList.stream().skip(1)
-        .collect(Collectors.toList());
+    buildTargetsList.sort(
+        Comparator.comparing(StashPullRequestBuildTarget::getBuildCommandCommentId).reversed());
+    Collection<StashPullRequestBuildTarget> buildTargetsToKeep =
+        buildTargetsList.stream().limit(1).collect(Collectors.toList());
+    Collection<StashPullRequestBuildTarget> buildTargetsToCancel =
+        buildTargetsList.stream().skip(1).collect(Collectors.toList());
     try {
       for (StashPullRequestBuildTarget buildTarget : buildTargetsToCancel) {
         postBuildCancelComment(pullRequest, buildTarget.getBuildCommandCommentId());
       }
     } catch (StashApiException e) {
-      pollLog.log("Cannot post \\\"BuildCanceled\\\" comment for PR #{}, not building", pullRequest.getId(), e);
-      logger.log(Level.INFO, format("%s: cannot post Build Cancel comment for pull request %s, not building",
-          job.getFullName(), pullRequest.getId()), e);
+      pollLog.log(
+          "Cannot post \\\"BuildCanceled\\\" comment for PR #{}, not building",
+          pullRequest.getId(),
+          e);
+      logger.log(
+          Level.INFO,
+          format(
+              "%s: cannot post Build Cancel comment for pull request %s, not building",
+              job.getFullName(), pullRequest.getId()),
+          e);
       return new ArrayList<>();
     }
     return buildTargetsToKeep;
@@ -228,8 +232,7 @@ public class StashRepository {
       if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
         if (comment.getReplies() != null
             && !comment.getReplies().isEmpty()
-            && comment.getReplies().stream()
-                .anyMatch(reply -> isStatusMessage(reply.getText()))) {
+            && comment.getReplies().stream().anyMatch(reply -> isStatusMessage(reply.getText()))) {
           continue;
         }
 
@@ -329,12 +332,10 @@ public class StashRepository {
       throws StashApiException {
     String sourceCommit = pullRequest.getFromRef().getLatestCommit();
     String destinationCommit = pullRequest.getToRef().getLatestCommit();
-    String comment =
-        format(marker, job.getDisplayName(), sourceCommit, destinationCommit);
+    String comment = format(marker, job.getDisplayName(), sourceCommit, destinationCommit);
     StashPullRequestComment commentResponse;
     commentResponse =
-        this.client.postPullRequestComment(
-            pullRequest.getId(), comment, buildCommandCommentId);
+        this.client.postPullRequestComment(pullRequest.getId(), comment, buildCommandCommentId);
     return commentResponse.getCommentId().toString();
   }
 
