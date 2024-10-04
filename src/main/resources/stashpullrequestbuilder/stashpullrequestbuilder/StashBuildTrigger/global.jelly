@@ -4,5 +4,8 @@
     <f:entry title="Enable pipeline support (experimental)" field="enablePipelineSupport">
       <f:checkbox />
     </f:entry>
+    <f:entry title="Number of polling threads (experimental)" field="numOfThreads">
+      <f:textbox default="10" />
+    </f:entry>
   </f:section>
 </j:jelly>

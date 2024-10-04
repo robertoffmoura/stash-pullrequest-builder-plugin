@@ -17,9 +17,15 @@ import hudson.model.queue.Tasks;
 import hudson.security.ACL;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
+import hudson.util.DaemonThreadFactory;
+import hudson.util.ExceptionCatchingThreadFactory;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.util.NamingThreadFactory;
 import java.lang.invoke.MethodHandles;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.ParameterizedJobMixIn.ParameterizedJob;
@@ -62,6 +68,8 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
 
   private transient StashRepository stashRepository;
   private transient StashPollingAction stashPollingAction;
+
+  private transient AtomicBoolean checkAlreadyQueued;
 
   @DataBoundConstructor
   public StashBuildTrigger(
@@ -227,6 +235,7 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
   @Override
   public void start(Job<?, ?> job, boolean newInstance) {
     super.start(job, newInstance);
+    this.checkAlreadyQueued = new AtomicBoolean(false);
 
     if (job == null) {
       logger.log(Level.SEVERE, "Can't start trigger: job is null");
@@ -281,7 +290,25 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
       return;
     }
 
-    stashRepository.pollRepository();
+    if (checkAlreadyQueued.compareAndSet(false, true)) {
+      logger.fine(format("Job not queued, adding %s", job.getFullName()));
+      descriptor
+          .getExecutorService()
+          .execute(
+              new Runnable() {
+                @Override
+                public void run() {
+                  try {
+                    stashRepository.pollRepository();
+                  } finally {
+                    checkAlreadyQueued.set(false);
+                  }
+                }
+              });
+    } else {
+      logger.fine(format("Job is already queued, skipping %s", job.getFullName()));
+    }
+
     getDescriptor().save();
   }
 
@@ -295,15 +322,38 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
   public static final class DescriptorImpl extends TriggerDescriptor {
     public static final String DEFAULT_CI_SKIP_PHRASES = "NO TEST";
     public static final String DEFAULT_CI_BUILD_PHRASES = "test this please";
+    private final transient ExecutorService executorService;
 
     private boolean enablePipelineSupport;
+    private String numOfThreads = "10";
 
     public DescriptorImpl() {
       load();
+      int intOfThreads = Integer.parseInt(numOfThreads);
+      logger.info(format("Creating pool size %s", numOfThreads));
+      executorService =
+          Executors.newFixedThreadPool(
+              intOfThreads,
+              new ExceptionCatchingThreadFactory(
+                  new NamingThreadFactory(
+                      new DaemonThreadFactory(), "DescriptorImpl.DescriptorImpl")));
+    }
+
+    public ExecutorService getExecutorService() {
+      return executorService;
     }
 
     public boolean getEnablePipelineSupport() {
       return enablePipelineSupport;
+    }
+
+    public String getNumOfThreads() {
+      return numOfThreads;
+    }
+
+    @DataBoundSetter
+    public void setNumOfThreads(String numOfThreads) {
+      this.numOfThreads = numOfThreads;
     }
 
     @DataBoundSetter
@@ -331,6 +381,7 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
 
       req.bindJSON(this, json);
       save();
+      logger.info(format("configuring numOfThreads to %s", numOfThreads));
       return super.configure(req, json);
     }
 

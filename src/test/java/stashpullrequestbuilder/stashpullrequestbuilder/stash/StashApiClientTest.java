@@ -35,8 +35,8 @@ import com.github.tomakehurst.wiremock.client.BasicCredentials;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import java.net.SocketException;
 import java.util.List;
+import javax.net.ssl.SSLException;
 import org.apache.http.client.ClientProtocolException;
 import org.junit.Before;
 import org.junit.Rule;
@@ -217,7 +217,7 @@ public class StashApiClientTest {
     assertThat(
         assertThrows(StashApiException.class, () -> client.getPullRequests()),
         allOf(
-            hasProperty("cause", is(instanceOf(SocketException.class))),
+            hasProperty("cause", is(instanceOf(SSLException.class))),
             hasProperty("message", containsString("Exception in GET request"))));
   }
 
@@ -293,7 +293,7 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.getPullRequestComments(projectName, repositoryName, pullRequestId)),
         allOf(
-            hasProperty("cause", is(instanceOf(SocketException.class))),
+            hasProperty("cause", is(instanceOf(SSLException.class))),
             hasProperty("message", containsString("Exception in GET request"))));
   }
 
@@ -343,7 +343,7 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.deletePullRequestComment(pullRequestId, commentId)),
         allOf(
-            hasProperty("cause", is(instanceOf(SocketException.class))),
+            hasProperty("cause", is(instanceOf(SSLException.class))),
             hasProperty("message", containsString("Exception in DELETE request"))));
   }
 
@@ -418,7 +418,7 @@ public class StashApiClientTest {
             StashApiException.class,
             () -> client.postPullRequestComment(pullRequestId, "Some comment")),
         allOf(
-            hasProperty("cause", is(instanceOf(SocketException.class))),
+            hasProperty("cause", is(instanceOf(SSLException.class))),
             hasProperty("message", containsString("Exception in POST request"))));
   }
 
@@ -474,7 +474,7 @@ public class StashApiClientTest {
         assertThrows(
             StashApiException.class, () -> client.getPullRequestMergeStatus(pullRequestId)),
         allOf(
-            hasProperty("cause", is(instanceOf(SocketException.class))),
+            hasProperty("cause", is(instanceOf(SSLException.class))),
             hasProperty("message", containsString("Exception in GET request"))));
   }
 
@@ -551,7 +551,7 @@ public class StashApiClientTest {
         assertThrows(
             StashApiException.class, () -> client.mergePullRequest(pullRequestId, mergeVersion)),
         allOf(
-            hasProperty("cause", is(instanceOf(SocketException.class))),
+            hasProperty("cause", is(instanceOf(SSLException.class))),
             hasProperty("message", containsString("Exception in POST request"))));
   }
 }
