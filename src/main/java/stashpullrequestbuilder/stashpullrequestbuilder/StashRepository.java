@@ -59,6 +59,7 @@ public class StashRepository {
       "\\[\\*BuildFinished\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
   private static final String BUILD_CANCEL_REGEX =
       "\\[\\*BuildCanceled\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
+  private static final String[] BUILD_REGEXES = {BUILD_START_REGEX, BUILD_FINISH_REGEX, BUILD_CANCEL_REGEX};
 
   private static final String BUILD_FINISH_SENTENCE =
       BUILD_FINISH_MARKER + " %n%n **[%s](%s)** - Build *&#x0023;%d* which took *%s*";
@@ -147,8 +148,7 @@ public class StashRepository {
 
   private boolean isStatusMessage(String content) {
     String escapedBuildName = Pattern.quote(job.getDisplayName());
-    String[] patterns = {BUILD_START_REGEX, BUILD_FINISH_REGEX, BUILD_CANCEL_REGEX};
-    for (String pattern : patterns) {
+    for (String pattern : BUILD_REGEXES) {
       String buildStatusMessage = String.format(pattern, escapedBuildName);
       Matcher matcher =
           Pattern.compile(buildStatusMessage, Pattern.CASE_INSENSITIVE).matcher(content);
