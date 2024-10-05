@@ -49,20 +49,17 @@ import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestRes
 public class StashRepository {
   private static final Logger logger =
       Logger.getLogger(MethodHandles.lookup().lookupClass().getName());
-  private static final String BUILD_START_MARKER = "[*BuildStarted* **%s**] %s into %s";
-  private static final String BUILD_FINISH_MARKER = "[*BuildFinished* **%s**] %s into %s";
-  private static final String BUILD_CANCEL_MARKER = "[*BuildCanceled* **%s**] %s into %s";
+  private static final String BUILD_START_MESSAGE = "BuildStarted";
+  private static final String BUILD_FINISH_MESSAGE = "BuildFinished";
+  private static final String BUILD_CANCEL_MESSAGE = "BuildCanceled";
+  private static final String[] BUILD_STATUSES = {BUILD_START_MESSAGE, BUILD_FINISH_MESSAGE, BUILD_CANCEL_MESSAGE};
+  private static final String BUILD_MARKER = "[*%s* **%s**] %s into %s";
 
-  private static final String BUILD_START_REGEX =
-      "\\[\\*BuildStarted\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
-  private static final String BUILD_FINISH_REGEX =
-      "\\[\\*BuildFinished\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
-  private static final String BUILD_CANCEL_REGEX =
-      "\\[\\*BuildCanceled\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
-  private static final String[] BUILD_REGEXES = {BUILD_START_REGEX, BUILD_FINISH_REGEX, BUILD_CANCEL_REGEX};
+  private static final String BUILD_STATUS_REGEX =
+      "\\[\\*%s\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
 
   private static final String BUILD_FINISH_SENTENCE =
-      BUILD_FINISH_MARKER + " %n%n **[%s](%s)** - Build *&#x0023;%d* which took *%s*";
+      " %n%n **[%s](%s)** - Build *&#x0023;%d* which took *%s*";
 
   private static final String BUILD_SUCCESS_COMMENT = "✓ BUILD SUCCESS";
   private static final String BUILD_FAILURE_COMMENT = "✕ BUILD FAILURE";
@@ -148,8 +145,8 @@ public class StashRepository {
 
   private boolean isStatusMessage(String content) {
     String escapedBuildName = Pattern.quote(job.getDisplayName());
-    for (String pattern : BUILD_REGEXES) {
-      String buildStatusMessage = String.format(pattern, escapedBuildName);
+    for (String buildStatus : BUILD_STATUSES) {
+      String buildStatusMessage = String.format(BUILD_STATUS_REGEX, buildStatus, escapedBuildName);
       Matcher matcher =
           Pattern.compile(buildStatusMessage, Pattern.CASE_INSENSITIVE).matcher(content);
       if (matcher.find()) {
@@ -262,8 +259,8 @@ public class StashRepository {
 
       // These will match any start or finish message -- need to check commits
       String escapedBuildName = Pattern.quote(job.getDisplayName());
-      String project_build_start = String.format(BUILD_START_REGEX, escapedBuildName);
-      String project_build_finished = String.format(BUILD_FINISH_REGEX, escapedBuildName);
+      String project_build_start = String.format(BUILD_STATUS_REGEX, BUILD_START_MESSAGE, escapedBuildName);
+      String project_build_finished = String.format(BUILD_STATUS_REGEX, BUILD_FINISH_MESSAGE, escapedBuildName);
       Matcher startMatcher =
           Pattern.compile(project_build_start, Pattern.CASE_INSENSITIVE).matcher(content);
       Matcher finishMatcher =
@@ -313,7 +310,7 @@ public class StashRepository {
   private String postBuildStartComment(
       StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId)
       throws StashApiException {
-    return postBuildStatusComment(pullRequest, buildCommandCommentId, BUILD_START_MARKER);
+    return postBuildStatusComment(pullRequest, buildCommandCommentId, BUILD_START_MESSAGE);
   }
 
   /**
@@ -326,15 +323,15 @@ public class StashRepository {
   private String postBuildCancelComment(
       StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId)
       throws StashApiException {
-    return postBuildStatusComment(pullRequest, buildCommandCommentId, BUILD_CANCEL_MARKER);
+    return postBuildStatusComment(pullRequest, buildCommandCommentId, BUILD_CANCEL_MESSAGE);
   }
 
   private String postBuildStatusComment(
-      StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId, String marker)
+      StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId, String buildMessage)
       throws StashApiException {
     String sourceCommit = pullRequest.getFromRef().getLatestCommit();
     String destinationCommit = pullRequest.getToRef().getLatestCommit();
-    String comment = format(marker, job.getDisplayName(), sourceCommit, destinationCommit);
+    String comment = format(BUILD_MARKER, buildMessage, job.getDisplayName(), sourceCommit, destinationCommit);
     StashPullRequestComment commentResponse;
     commentResponse =
         this.client.postPullRequestComment(pullRequest.getId(), comment, buildCommandCommentId);
@@ -582,10 +579,13 @@ public class StashRepository {
     String message = getMessageForBuildResult(buildResult);
     String comment =
         format(
-            BUILD_FINISH_SENTENCE,
+            BUILD_MARKER,
+            BUILD_FINISH_MESSAGE,
             job.getDisplayName(),
             sourceCommit,
-            destinationCommit,
+            destinationCommit)
+        + format(
+            BUILD_FINISH_SENTENCE,
             message,
             buildUrl,
             buildNumber,
@@ -684,7 +684,7 @@ public class StashRepository {
         continue;
       }
 
-      String project_build_finished = format(BUILD_FINISH_REGEX, job.getDisplayName());
+      String project_build_finished = format(BUILD_STATUS_REGEX, BUILD_FINISH_MESSAGE, job.getDisplayName());
       Matcher finishMatcher =
           Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
 
