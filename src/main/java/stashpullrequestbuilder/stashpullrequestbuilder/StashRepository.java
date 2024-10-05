@@ -159,7 +159,7 @@ public class StashRepository {
     return false;
   }
 
-  public List<StashPullRequestBuildTarget> getBuildTargets(
+  protected List<StashPullRequestBuildTarget> getBuildTargets(
       StashPullRequestResponseValue pullRequest) {
     if (shouldSkip(pullRequest)) {
       return new ArrayList<>();
