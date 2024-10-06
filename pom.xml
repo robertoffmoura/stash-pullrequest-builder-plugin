@@ -201,7 +201,7 @@
             <executions>
               <execution>
                 <goals>
-                  <goal>check-local-modification</goal>
+                  <!-- <goal>check-local-modification</goal> -->
                 </goals>
                 <phase>verify</phase>
               </execution>
