@@ -228,7 +228,7 @@ public class StashRepository {
         continue;
       }
 
-      if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
+      if (isPhrasesStartsWith(content, this.trigger.getCiBuildPhrases())) {
         if (comment.getReplies() != null
             && !comment.getReplies().isEmpty()
             && comment.getReplies().stream().anyMatch(reply -> isStatusMessage(reply.getText()))) {
@@ -292,7 +292,7 @@ public class StashRepository {
       if (isSkipBuild(content)) {
         return new ArrayList<>();
       }
-      if (isPhrasesContain(content, this.trigger.getCiBuildPhrases())) {
+      if (isPhrasesStartsWith(content, this.trigger.getCiBuildPhrases())) {
         return Collections.singletonList(
             new StashPullRequestBuildTarget(pullRequest, getAdditionalParameters(comment)));
       }
@@ -728,6 +728,14 @@ public class StashRepository {
     }
 
     return StringUtils.containsIgnoreCase(text, phrase.trim());
+  }
+
+  private boolean isPhrasesStartsWith(String text, String phrase) {
+    if (StringUtils.isEmpty(text)) {
+      return false;
+    }
+
+    return StringUtils.startsWithIgnoreCase(text, phrase.trim());
   }
 
   public void pollRepository() {

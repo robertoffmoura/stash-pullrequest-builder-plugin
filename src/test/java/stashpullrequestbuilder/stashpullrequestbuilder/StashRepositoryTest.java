@@ -443,6 +443,21 @@ public class StashRepositoryTest {
   }
 
   @Test
+  public void
+      getBuildTargets_onlyBuildOnComment_does_not_build_if_comment_does_not_start_with_build_command()
+          throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    List<StashPullRequestComment> comments =
+        Arrays.asList(
+            new StashPullRequestComment(
+                1, "Text before the build command. DO TEST\np:key1=value1"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+
+    assertThat(stashRepository.getBuildTargets(pullRequest), empty());
+  }
+
+  @Test
   public void getBuildTargets_onlyBuildOnComment_multiple_comments_generate_multiple_targets()
       throws Exception {
     StashPullRequestComment comment1 =
