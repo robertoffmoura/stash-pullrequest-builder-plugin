@@ -49,14 +49,20 @@ import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashPullRequestRes
 public class StashRepository {
   private static final Logger logger =
       Logger.getLogger(MethodHandles.lookup().lookupClass().getName());
+  private static final String BUILD_QUEUED_MESSAGE = "BuildQueued";
   private static final String BUILD_START_MESSAGE = "BuildStarted";
   private static final String BUILD_FINISH_MESSAGE = "BuildFinished";
   private static final String BUILD_CANCEL_MESSAGE = "BuildCanceled";
-  private static final String[] BUILD_STATUSES = {BUILD_START_MESSAGE, BUILD_FINISH_MESSAGE, BUILD_CANCEL_MESSAGE};
+  private static final String[] BUILD_STATUSES = {
+    BUILD_QUEUED_MESSAGE, BUILD_START_MESSAGE, BUILD_FINISH_MESSAGE, BUILD_CANCEL_MESSAGE
+  };
   private static final String BUILD_MARKER = "[*%s* **%s**] %s into %s";
 
   private static final String BUILD_STATUS_REGEX =
       "\\[\\*%s\\* \\*\\*%s\\*\\*\\] ([0-9a-fA-F]+) into ([0-9a-fA-F]+)";
+
+  private static final String BUILD_START_SENTENCE =
+      " %n%n **[view build](%s)** - Build *&#x0023;%d*";
 
   private static final String BUILD_FINISH_SENTENCE =
       " %n%n **[%s](%s)** - Build *&#x0023;%d* which took *%s*";
@@ -257,26 +263,21 @@ public class StashRepository {
         continue;
       }
 
-      // These will match any start or finish message -- need to check commits
+      // Match any build status comment to check commits
       String escapedBuildName = Pattern.quote(job.getDisplayName());
-      String project_build_start = String.format(BUILD_STATUS_REGEX, BUILD_START_MESSAGE, escapedBuildName);
-      String project_build_finished = String.format(BUILD_STATUS_REGEX, BUILD_FINISH_MESSAGE, escapedBuildName);
-      Matcher startMatcher =
-          Pattern.compile(project_build_start, Pattern.CASE_INSENSITIVE).matcher(content);
-      Matcher finishMatcher =
-          Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
-
-      if (startMatcher.find() || finishMatcher.find()) {
-        String sourceCommitMatch;
-        String destinationCommitMatch;
-
-        if (startMatcher.find(0)) {
-          sourceCommitMatch = startMatcher.group(1);
-          destinationCommitMatch = startMatcher.group(2);
-        } else {
-          sourceCommitMatch = finishMatcher.group(1);
-          destinationCommitMatch = finishMatcher.group(2);
+      Matcher statusMatcher = null;
+      for (String status : BUILD_STATUSES) {
+        String regex = String.format(BUILD_STATUS_REGEX, status, escapedBuildName);
+        Matcher m = Pattern.compile(regex, Pattern.CASE_INSENSITIVE).matcher(content);
+        if (m.find()) {
+          statusMatcher = m;
+          break;
         }
+      }
+
+      if (statusMatcher != null) {
+        String sourceCommitMatch = statusMatcher.group(1);
+        String destinationCommitMatch = statusMatcher.group(2);
 
         // first check source commit -- if it doesn't match, just move on. If it does,
         // investigate further.
@@ -301,16 +302,16 @@ public class StashRepository {
   }
 
   /**
-   * Post "BuildStarted" comment to Bitbucket Server
+   * Post "BuildQueued" comment to Bitbucket Server
    *
    * @param pullRequest pull request
    * @return comment ID
    * @throws StashApiException if posting the comment fails
    */
-  private String postBuildStartComment(
+  private String postBuildQueuedComment(
       StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId)
       throws StashApiException {
-    return postBuildStatusComment(pullRequest, buildCommandCommentId, BUILD_START_MESSAGE);
+    return postBuildStatusComment(pullRequest, buildCommandCommentId, BUILD_QUEUED_MESSAGE);
   }
 
   /**
@@ -326,12 +327,46 @@ public class StashRepository {
     return postBuildStatusComment(pullRequest, buildCommandCommentId, BUILD_CANCEL_MESSAGE);
   }
 
+  /**
+   * Post "BuildStarted" comment with a link to the build page
+   *
+   * @param pullRequestId pull request ID
+   * @param sourceCommit source commit hash
+   * @param destinationCommit destination commit hash
+   * @param buildCommandCommentId comment ID of the build command (for threading)
+   * @param buildUrl URL to the build page in Jenkins
+   * @param buildNumber build number
+   * @return comment ID
+   * @throws StashApiException if posting the comment fails
+   */
+  public String postBuildStartedComment(
+      String pullRequestId,
+      String sourceCommit,
+      String destinationCommit,
+      Integer buildCommandCommentId,
+      String buildUrl,
+      int buildNumber)
+      throws StashApiException {
+    String comment =
+        format(
+                BUILD_MARKER,
+                BUILD_START_MESSAGE,
+                job.getDisplayName(),
+                sourceCommit,
+                destinationCommit)
+            + format(BUILD_START_SENTENCE, buildUrl, buildNumber);
+    StashPullRequestComment commentResponse =
+        this.client.postPullRequestComment(pullRequestId, comment, buildCommandCommentId);
+    return commentResponse.getCommentId().toString();
+  }
+
   private String postBuildStatusComment(
       StashPullRequestResponseValue pullRequest, Integer buildCommandCommentId, String buildMessage)
       throws StashApiException {
     String sourceCommit = pullRequest.getFromRef().getLatestCommit();
     String destinationCommit = pullRequest.getToRef().getLatestCommit();
-    String comment = format(BUILD_MARKER, buildMessage, job.getDisplayName(), sourceCommit, destinationCommit);
+    String comment =
+        format(BUILD_MARKER, buildMessage, job.getDisplayName(), sourceCommit, destinationCommit);
     StashPullRequestComment commentResponse;
     commentResponse =
         this.client.postPullRequestComment(pullRequest.getId(), comment, buildCommandCommentId);
@@ -487,22 +522,22 @@ public class StashRepository {
       }
     }
 
-    // Post a comment indicating the build start. Strictly speaking, we are
-    // just adding the build to the queue, it will start after the quiet time
-    // expires and there are executors available. Failure to post the comment
-    // prevents the build for safety reasons. If the plugin cannot post this
-    // comment, chances are it won't be able to post the build results, which
-    // would trigger the build again and again, wasting Jenkins resources.
-    String buildStartCommentId;
+    // Post a comment indicating the build has been queued. The build will
+    // start after the quiet time expires and there are executors available.
+    // Failure to post the comment prevents the build for safety reasons. If
+    // the plugin cannot post this comment, chances are it won't be able to
+    // post the build results, which would trigger the build again and again,
+    // wasting Jenkins resources.
+    String buildQueuedCommentId;
     try {
-      buildStartCommentId = postBuildStartComment(pullRequest, buildCommandCommentId);
+      buildQueuedCommentId = postBuildQueuedComment(pullRequest, buildCommandCommentId);
     } catch (StashApiException e) {
       pollLog.log(
-          "Cannot post \"BuildStarted\" comment for PR #{}, not building", pullRequest.getId(), e);
+          "Cannot post \"BuildQueued\" comment for PR #{}, not building", pullRequest.getId(), e);
       logger.log(
           Level.INFO,
           format(
-              "%s: cannot post Build Start comment for pull request %s, not building",
+              "%s: cannot post Build Queued comment for pull request %s, not building",
               job.getFullName(), pullRequest.getId()),
           e);
       return;
@@ -521,7 +556,7 @@ public class StashRepository {
             pullRequest.getTitle(),
             pullRequest.getFromRef().getLatestCommit(),
             pullRequest.getToRef().getLatestCommit(),
-            buildStartCommentId,
+            buildQueuedCommentId,
             buildCommandCommentId,
             pullRequest.getVersion(),
             additionalParameters);
@@ -579,17 +614,12 @@ public class StashRepository {
     String message = getMessageForBuildResult(buildResult);
     String comment =
         format(
-            BUILD_MARKER,
-            BUILD_FINISH_MESSAGE,
-            job.getDisplayName(),
-            sourceCommit,
-            destinationCommit)
-        + format(
-            BUILD_FINISH_SENTENCE,
-            message,
-            buildUrl,
-            buildNumber,
-            duration);
+                BUILD_MARKER,
+                BUILD_FINISH_MESSAGE,
+                job.getDisplayName(),
+                sourceCommit,
+                destinationCommit)
+            + format(BUILD_FINISH_SENTENCE, message, buildUrl, buildNumber, duration);
 
     comment = comment.concat(additionalComment);
 
@@ -684,7 +714,8 @@ public class StashRepository {
         continue;
       }
 
-      String project_build_finished = format(BUILD_STATUS_REGEX, BUILD_FINISH_MESSAGE, job.getDisplayName());
+      String project_build_finished =
+          format(BUILD_STATUS_REGEX, BUILD_FINISH_MESSAGE, job.getDisplayName());
       Matcher finishMatcher =
           Pattern.compile(project_build_finished, Pattern.CASE_INSENSITIVE).matcher(content);
 

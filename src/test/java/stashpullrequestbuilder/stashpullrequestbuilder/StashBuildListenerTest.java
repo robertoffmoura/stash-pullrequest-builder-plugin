@@ -4,6 +4,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
@@ -76,7 +77,7 @@ public class StashBuildListenerTest {
             "PullRequestTitle",
             "SourceCommitHash",
             "DestinationCommitHash",
-            "BuildStartCommentId",
+            "BuildQueuedCommentId",
             null,
             "PullRequestVersion",
             null);
@@ -100,9 +101,27 @@ public class StashBuildListenerTest {
     return repository;
   }
 
+  private StashRepository setup_onStarted() throws Exception {
+    StashBuildTrigger trigger = mock(StashBuildTrigger.class);
+    StashRepository repository = mock(StashRepository.class);
+    FreeStyleProject project = spy(jenkinsRule.createFreeStyleProject("TestProjectStarted"));
+
+    Map<TriggerDescriptor, Trigger<?>> triggerMap = new HashMap<>();
+    triggerMap.put(StashBuildTrigger.descriptor, trigger);
+
+    when(build.getCause(eq(StashCause.class))).thenReturn(stashCause);
+    when(build.getParent()).thenReturn(project);
+    when(project.getTriggers()).thenReturn(triggerMap);
+    when(trigger.getRepository()).thenReturn(repository);
+
+    return repository;
+  }
+
   @Test
   public void onStarted_sets_description() throws Exception {
     when(build.getCause(eq(StashCause.class))).thenReturn(stashCause);
+    FreeStyleProject project = spy(jenkinsRule.createFreeStyleProject("TestProjectDesc"));
+    when(build.getParent()).thenReturn(project);
 
     stashBuildListener.onStarted(build, taskListener);
 
@@ -122,6 +141,8 @@ public class StashBuildListenerTest {
   public void onStarted_writes_to_build_log_on_exception() throws Exception {
     when(build.getCause(eq(StashCause.class))).thenReturn(stashCause);
     doThrow(new IOException("Bad Description")).when(build).setDescription(anyString());
+    FreeStyleProject project = spy(jenkinsRule.createFreeStyleProject("TestProjectDescErr"));
+    when(build.getParent()).thenReturn(project);
 
     stashBuildListener.onStarted(build, taskListener);
 
@@ -133,6 +154,30 @@ public class StashBuildListenerTest {
     for (int i = 2; i < buildLogLines.length; i++) {
       assertThat(buildLogLines[i], matchesPattern("^\\tat [A-Za-z0-9_$.]+\\(.*\\)$"));
     }
+  }
+
+  @Test
+  public void onStarted_deletes_queued_comment_and_posts_started_comment() throws Exception {
+    StashRepository repository = setup_onStarted();
+
+    when(repository.postBuildStartedComment(
+            anyString(), anyString(), anyString(), any(), anyString(), eq(0)))
+        .thenReturn("StartedCommentId");
+
+    stashBuildListener.onStarted(build, taskListener);
+
+    verify(repository, times(1))
+        .deletePullRequestComment(
+            eq(stashCause.getPullRequestId()), eq(stashCause.getBuildQueuedCommentId()));
+    verify(repository, times(1))
+        .postBuildStartedComment(
+            eq(stashCause.getPullRequestId()),
+            eq(stashCause.getSourceCommitHash()),
+            eq(stashCause.getDestinationCommitHash()),
+            eq(stashCause.getBuildCommandCommentId()),
+            startsWith("http://localhost"),
+            eq(0));
+    verify(build, times(1)).addAction(any(StashBuildStartedAction.class));
   }
 
   @Test
@@ -166,7 +211,7 @@ public class StashBuildListenerTest {
     doThrow(new StashApiException("Cannot Delete"))
         .when(repository)
         .deletePullRequestComment(
-            eq(stashCause.getPullRequestId()), eq(stashCause.getBuildStartCommentId()));
+            eq(stashCause.getPullRequestId()), eq(stashCause.getBuildQueuedCommentId()));
 
     stashBuildListener.onCompleted(build, taskListener);
 
@@ -175,7 +220,7 @@ public class StashBuildListenerTest {
     assertThat(buildLogLines.length, is(greaterThanOrEqualTo(3)));
     assertThat(
         buildLogLines[0],
-        is("TestProject: cannot delete Build Start comment for pull request PullRequestId"));
+        is("TestProject: cannot delete Build Started comment for pull request PullRequestId"));
     assertThat(
         buildLogLines[1],
         is(

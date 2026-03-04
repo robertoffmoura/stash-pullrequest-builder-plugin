@@ -26,6 +26,8 @@ import stashpullrequestbuilder.stashpullrequestbuilder.stash.StashApiClient.Stas
 public class StashBuildListener extends RunListener<Run<?, ?>> {
   private static final Logger logger =
       Logger.getLogger(MethodHandles.lookup().lookupClass().getName());
+  private static final String ROOT_URL_PLACEHOLDER =
+      "=== PLEASE SET JENKINS ROOT URL FROM GLOBAL CONFIGURATION ===";
 
   @Override
   public void onStarted(Run<?, ?> run, TaskListener listener) {
@@ -44,6 +46,54 @@ public class StashBuildListener extends RunListener<Run<?, ?>> {
     } catch (IOException e) {
       PrintStream buildLogger = listener.getLogger();
       buildLogger.println("Can't update build description");
+      e.printStackTrace(buildLogger);
+    }
+
+    StashBuildTrigger trigger =
+        ParameterizedJobMixIn.getTrigger(run.getParent(), StashBuildTrigger.class);
+    if (trigger == null) {
+      return;
+    }
+
+    StashRepository repository = trigger.getRepository();
+    PrintStream buildLogger = listener.getLogger();
+
+    // Delete the "Build Queued" comment, as it gets replaced with a "Build
+    // Started" comment that includes a link to the build. Failure to delete
+    // the comment is not fatal.
+    try {
+      repository.deletePullRequestComment(
+          cause.getPullRequestId(), cause.getBuildQueuedCommentId());
+    } catch (StashApiException e) {
+      buildLogger.println(
+          format(
+              "%s: cannot delete Build Queued comment for pull request %s",
+              run.getParent().getFullName(), cause.getPullRequestId()));
+      e.printStackTrace(buildLogger);
+    }
+
+    // Post a "Build Started" comment with a link to the build page.
+    final String rootUrl =
+        Objects.toString(
+            Jenkins.getInstance().getRootUrl(),
+            ROOT_URL_PLACEHOLDER);
+    final String buildUrl = rootUrl + run.getUrl();
+
+    try {
+      String startedCommentId =
+          repository.postBuildStartedComment(
+              cause.getPullRequestId(),
+              cause.getSourceCommitHash(),
+              cause.getDestinationCommitHash(),
+              cause.getBuildCommandCommentId(),
+              buildUrl,
+              run.getNumber());
+      run.addAction(new StashBuildStartedAction(startedCommentId));
+    } catch (StashApiException e) {
+      buildLogger.println(
+          format(
+              "%s: cannot post Build Started comment for pull request %s",
+              run.getParent().getFullName(), cause.getPullRequestId()));
       e.printStackTrace(buildLogger);
     }
   }
@@ -72,18 +122,22 @@ public class StashBuildListener extends RunListener<Run<?, ?>> {
     final String rootUrl =
         Objects.toString(
             Jenkins.getInstance().getRootUrl(),
-            "=== PLEASE SET JENKINS ROOT URL FROM GLOBAL CONFIGURATION ===");
+            ROOT_URL_PLACEHOLDER);
     final String buildUrl = rootUrl + run.getUrl();
 
-    // Delete the "Build Started" comment, as it gets replaced with a comment
-    // about the build result. Failure to delete the comment is not fatal, it's
+    // Delete the "Build Started" comment (or "Build Queued" if the started
+    // comment was never posted), as it gets replaced with a comment about
+    // the build result. Failure to delete the comment is not fatal, it's
     // reported to the build log.
+    StashBuildStartedAction startedAction = run.getAction(StashBuildStartedAction.class);
+    String commentToDelete =
+        startedAction != null ? startedAction.getCommentId() : cause.getBuildQueuedCommentId();
     try {
-      repository.deletePullRequestComment(cause.getPullRequestId(), cause.getBuildStartCommentId());
+      repository.deletePullRequestComment(cause.getPullRequestId(), commentToDelete);
     } catch (StashApiException e) {
       buildLogger.println(
           format(
-              "%s: cannot delete Build Start comment for pull request %s",
+              "%s: cannot delete Build Started comment for pull request %s",
               run.getParent().getFullName(), cause.getPullRequestId()));
       e.printStackTrace(buildLogger);
     }

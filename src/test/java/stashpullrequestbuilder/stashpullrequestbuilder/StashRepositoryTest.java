@@ -377,6 +377,38 @@ public class StashRepositoryTest {
   }
 
   @Test
+  public void
+      getBuildTargets_notOnlyBuildOnComment_does_not_build_if_buildQueued_comment_exists()
+          throws Exception {
+    List<StashPullRequestComment> comments =
+        Arrays.asList(
+            new StashPullRequestComment(
+                1, "[*BuildQueued* **MyProject**] DEADBEEF into 1BADFACE"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+    when(project.getFullName()).thenReturn("MyProject");
+    when(trigger.getOnlyBuildOnComment()).thenReturn(false);
+    pullRequest.getFromRef().setLatestCommit("DEADBEEF");
+
+    assertThat(stashRepository.getBuildTargets(pullRequest), empty());
+  }
+
+  @Test
+  public void
+      getBuildTargets_notOnlyBuildOnComment_does_not_build_if_buildStarted_comment_exists()
+          throws Exception {
+    List<StashPullRequestComment> comments =
+        Arrays.asList(
+            new StashPullRequestComment(
+                1, "[*BuildStarted* **MyProject**] DEADBEEF into 1BADFACE"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+    when(project.getFullName()).thenReturn("MyProject");
+    when(trigger.getOnlyBuildOnComment()).thenReturn(false);
+    pullRequest.getFromRef().setLatestCommit("DEADBEEF");
+
+    assertThat(stashRepository.getBuildTargets(pullRequest), empty());
+  }
+
+  @Test
   public void getBuildTargets_notOnlyBuildOnComment_builds_if_source_commit_changes()
       throws Exception {
     List<StashPullRequestComment> comments =
