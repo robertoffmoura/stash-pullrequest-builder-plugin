@@ -74,9 +74,7 @@ public class StashBuildListener extends RunListener<Run<?, ?>> {
 
     // Post a "Build Started" comment with a link to the build page.
     final String rootUrl =
-        Objects.toString(
-            Jenkins.getInstance().getRootUrl(),
-            ROOT_URL_PLACEHOLDER);
+        Objects.toString(Jenkins.getInstance().getRootUrl(), ROOT_URL_PLACEHOLDER);
     final String buildUrl = rootUrl + run.getUrl();
 
     try {
@@ -120,9 +118,7 @@ public class StashBuildListener extends RunListener<Run<?, ?>> {
     // configured, post a message that won't show as a link to indicate the
     // problem. The build status would still be visible in that case.
     final String rootUrl =
-        Objects.toString(
-            Jenkins.getInstance().getRootUrl(),
-            ROOT_URL_PLACEHOLDER);
+        Objects.toString(Jenkins.getInstance().getRootUrl(), ROOT_URL_PLACEHOLDER);
     final String buildUrl = rootUrl + run.getUrl();
 
     // Delete the "Build Started" comment (or "Build Queued" if the started
