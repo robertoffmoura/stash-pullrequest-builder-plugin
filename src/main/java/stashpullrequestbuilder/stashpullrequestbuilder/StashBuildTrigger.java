@@ -43,7 +43,7 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
   private static final Logger logger =
       Logger.getLogger(MethodHandles.lookup().lookupClass().getName());
 
-  @Extension public static final DescriptorImpl descriptor = new DescriptorImpl();
+  public static final DescriptorImpl descriptor = new DescriptorImpl();
 
   // Required settings
   private final String cron;
@@ -319,6 +319,7 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
     super.stop();
   }
 
+  @Extension
   public static final class DescriptorImpl extends TriggerDescriptor {
     public static final String DEFAULT_CI_SKIP_PHRASES = "NO TEST";
     public static final String DEFAULT_CI_BUILD_PHRASES = "test this please";
