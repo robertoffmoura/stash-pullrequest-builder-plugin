@@ -858,4 +858,120 @@ public class StashRepositoryTest {
 
     assertThat(stashRepository.getBuildTargets(pullRequest), empty());
   }
+
+  private StashPullRequestComment makeCommentWithAuthor(
+      Integer id, String text, String authorUsername) {
+    StashPullRequestComment comment = new StashPullRequestComment(id, text);
+    if (authorUsername != null) {
+      StashPullRequestComment.Author author = new StashPullRequestComment.Author();
+      author.setName(authorUsername);
+      comment.setAuthor(author);
+    }
+    return comment;
+  }
+
+  @Test
+  public void getBuildTargets_ignores_comments_from_ignored_users() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getIgnoredCommenters()).thenReturn("bot-.*");
+
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "bot-ci"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(stashRepository.getBuildTargets(pullRequest), empty());
+  }
+
+  @Test
+  public void getBuildTargets_allows_comments_from_non_ignored_users() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+    when(trigger.getIgnoredCommenters()).thenReturn("bot-.*");
+
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "jsmith"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+  }
+
+  @Test
+  public void getBuildTargets_empty_ignoredCommenters_allows_all_comments() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+    when(trigger.getIgnoredCommenters()).thenReturn("");
+
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "bot-ci"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+  }
+
+  @Test
+  public void getBuildTargets_null_ignoredCommenters_allows_all_comments() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+    when(trigger.getIgnoredCommenters()).thenReturn(null);
+
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "bot-ci"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+  }
+
+  @Test
+  public void getBuildTargets_ignoredCommenters_filters_in_non_onlyBuildOnComment_mode()
+      throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(false);
+    when(trigger.getIgnoredCommenters()).thenReturn("bot-.*");
+
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "NO TEST", "bot-ci"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    // The "NO TEST" comment from bot-ci should be ignored, so the build should proceed
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+  }
+
+  @Test
+  public void getBuildTargets_ignoredCommenters_matches_exact_username() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getIgnoredCommenters()).thenReturn("jenkins|bamboo");
+
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "jenkins"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(stashRepository.getBuildTargets(pullRequest), empty());
+  }
+
+  @Test
+  public void getBuildTargets_ignoredCommenters_allows_comment_without_author() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+    when(trigger.getIgnoredCommenters()).thenReturn("bot-.*");
+
+    // Comment with no author set (null author)
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(new StashPullRequestComment(1, "DO TEST"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+  }
 }

@@ -185,6 +185,8 @@ public class StashRepository {
       return new ArrayList<>();
     }
 
+    comments = filterIgnoredCommenters(comments);
+
     boolean isOnlyBuildOnComment = trigger.getOnlyBuildOnComment();
     if (!isOnlyBuildOnComment) {
       return getBuildTargetsWithoutOnlyBuildOnCommentLogic(pullRequest, comments);
@@ -738,6 +740,29 @@ public class StashRepository {
       }
     }
     return false;
+  }
+
+  private List<StashPullRequestComment> filterIgnoredCommenters(
+      List<StashPullRequestComment> comments) {
+    String ignoredCommenters = this.trigger.getIgnoredCommenters();
+    if (StringUtils.isEmpty(ignoredCommenters)) {
+      return comments;
+    }
+
+    List<StashPullRequestComment> filtered = new ArrayList<>();
+    for (StashPullRequestComment comment : comments) {
+      if (!isIgnoredCommenter(comment.getAuthorUsername(), ignoredCommenters)) {
+        filtered.add(comment);
+      }
+    }
+    return filtered;
+  }
+
+  private boolean isIgnoredCommenter(String username, String ignoredCommentersRegex) {
+    if (StringUtils.isEmpty(username) || StringUtils.isEmpty(ignoredCommentersRegex)) {
+      return false;
+    }
+    return username.matches(ignoredCommentersRegex);
   }
 
   private boolean isSkipBuild(String pullRequestContentString) {

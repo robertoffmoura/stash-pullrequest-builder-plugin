@@ -52,5 +52,8 @@
     <f:entry title="Phrase to request a (re-)build" field="ciBuildPhrases">
       <f:textbox default="${descriptor.DEFAULT_CI_BUILD_PHRASES}"/>
     </f:entry>
+    <f:entry title="Ignore comments from users matching regex" field="ignoredCommenters">
+      <f:textbox default=""/>
+    </f:entry>
   </f:advanced>
 </j:jelly>

@@ -9,8 +9,22 @@ import java.util.Objects;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class StashPullRequestComment implements Comparable<StashPullRequestComment> {
 
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class Author {
+    private String name;
+
+    public String getName() {
+      return name;
+    }
+
+    public void setName(String name) {
+      this.name = name;
+    }
+  }
+
   private Integer commentId;
   private String text;
+  private Author author;
   private List<StashPullRequestComment> replies;
 
   public StashPullRequestComment() {}
@@ -40,6 +54,18 @@ public class StashPullRequestComment implements Comparable<StashPullRequestComme
 
   public void setText(String text) {
     this.text = text;
+  }
+
+  public Author getAuthor() {
+    return author;
+  }
+
+  public void setAuthor(Author author) {
+    this.author = author;
+  }
+
+  public String getAuthorUsername() {
+    return author != null ? author.getName() : null;
   }
 
   @JsonProperty("comments")

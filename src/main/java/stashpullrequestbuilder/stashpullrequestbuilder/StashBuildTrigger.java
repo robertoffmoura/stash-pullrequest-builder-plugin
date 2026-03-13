@@ -65,6 +65,7 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
   private String ciSkipPhrases = DescriptorImpl.DEFAULT_CI_SKIP_PHRASES;
   private boolean onlyBuildOnComment;
   private String ciBuildPhrases = DescriptorImpl.DEFAULT_CI_BUILD_PHRASES;
+  private String ignoredCommenters = "";
 
   private transient StashRepository stashRepository;
   private transient StashPollingAction stashPollingAction;
@@ -226,6 +227,15 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
   @DataBoundSetter
   public void setCiBuildPhrases(String ciBuildPhrases) {
     this.ciBuildPhrases = ciBuildPhrases;
+  }
+
+  public String getIgnoredCommenters() {
+    return ignoredCommenters;
+  }
+
+  @DataBoundSetter
+  public void setIgnoredCommenters(String ignoredCommenters) {
+    this.ignoredCommenters = ignoredCommenters;
   }
 
   public StashPollingAction getStashPollingAction() {
