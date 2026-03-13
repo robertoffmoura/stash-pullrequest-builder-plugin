@@ -974,4 +974,99 @@ public class StashRepositoryTest {
         stashRepository.getBuildTargets(pullRequest),
         allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
   }
+
+  @Test
+  public void getBuildTargets_globalIgnoredCommenters_filters_comment() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getIgnoredCommenters()).thenReturn("");
+    when(trigger.getGlobalIgnoredCommenters()).thenReturn("svc-.*");
+
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "svc-bitbucket"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(stashRepository.getBuildTargets(pullRequest), empty());
+  }
+
+  @Test
+  public void getBuildTargets_globalIgnoredCommenters_allows_non_matching_user() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+    when(trigger.getIgnoredCommenters()).thenReturn("");
+    when(trigger.getGlobalIgnoredCommenters()).thenReturn("svc-.*");
+
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "jsmith"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+  }
+
+  @Test
+  public void getBuildTargets_both_job_and_global_ignoredCommenters_are_applied() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getIgnoredCommenters()).thenReturn("bot-.*");
+    when(trigger.getGlobalIgnoredCommenters()).thenReturn("svc-.*");
+
+    // bot-ci matches job-level regex
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "bot-ci"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(stashRepository.getBuildTargets(pullRequest), empty());
+  }
+
+  @Test
+  public void getBuildTargets_global_ignoredCommenters_catches_user_not_matched_by_job_level()
+      throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getIgnoredCommenters()).thenReturn("bot-.*");
+    when(trigger.getGlobalIgnoredCommenters()).thenReturn("svc-.*");
+
+    // svc-bitbucket does not match job-level but matches global
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "svc-bitbucket"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(stashRepository.getBuildTargets(pullRequest), empty());
+  }
+
+  @Test
+  public void getBuildTargets_user_must_pass_both_job_and_global_filters_to_trigger_build()
+      throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+    when(trigger.getIgnoredCommenters()).thenReturn("bot-.*");
+    when(trigger.getGlobalIgnoredCommenters()).thenReturn("svc-.*");
+
+    // jsmith matches neither job-level nor global regex
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "jsmith"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+  }
+
+  @Test
+  public void getBuildTargets_empty_global_ignoredCommenters_does_not_filter() throws Exception {
+    when(trigger.getOnlyBuildOnComment()).thenReturn(true);
+    when(trigger.getCiBuildPhrases()).thenReturn("DO TEST");
+    when(trigger.getCancelOutdatedJobsEnabled()).thenReturn(false);
+    when(trigger.getIgnoredCommenters()).thenReturn("");
+    when(trigger.getGlobalIgnoredCommenters()).thenReturn("");
+
+    List<StashPullRequestComment> comments =
+        Collections.singletonList(makeCommentWithAuthor(1, "DO TEST", "bot-ci"));
+    when(stashApiClient.getPullRequestComments(any(), any(), any())).thenReturn(comments);
+
+    assertThat(
+        stashRepository.getBuildTargets(pullRequest),
+        allOf(hasSize(1), contains(hasProperty("pullRequest", equalTo(pullRequest)))));
+  }
 }

@@ -238,6 +238,10 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
     this.ignoredCommenters = ignoredCommenters;
   }
 
+  public String getGlobalIgnoredCommenters() {
+    return ((DescriptorImpl) getDescriptor()).getGlobalIgnoredCommenters();
+  }
+
   public StashPollingAction getStashPollingAction() {
     return stashPollingAction;
   }
@@ -337,6 +341,7 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
 
     private boolean enablePipelineSupport;
     private String numOfThreads = "10";
+    private String globalIgnoredCommenters = "";
 
     public DescriptorImpl() {
       load();
@@ -370,6 +375,15 @@ public class StashBuildTrigger extends Trigger<Job<?, ?>> {
     @DataBoundSetter
     public void setEnablePipelineSupport(boolean enablePipelineSupport) {
       this.enablePipelineSupport = enablePipelineSupport;
+    }
+
+    public String getGlobalIgnoredCommenters() {
+      return globalIgnoredCommenters;
+    }
+
+    @DataBoundSetter
+    public void setGlobalIgnoredCommenters(String globalIgnoredCommenters) {
+      this.globalIgnoredCommenters = globalIgnoredCommenters;
     }
 
     @Override

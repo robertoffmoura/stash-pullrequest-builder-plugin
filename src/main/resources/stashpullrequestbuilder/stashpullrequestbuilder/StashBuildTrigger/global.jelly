@@ -7,5 +7,8 @@
     <f:entry title="Number of polling threads (experimental)" field="numOfThreads">
       <f:textbox default="10" />
     </f:entry>
+    <f:entry title="Globally ignore comments from users matching regex" field="globalIgnoredCommenters">
+      <f:textbox default="" />
+    </f:entry>
   </f:section>
 </j:jelly>

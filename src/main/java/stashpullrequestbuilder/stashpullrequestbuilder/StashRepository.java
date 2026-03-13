@@ -744,14 +744,18 @@ public class StashRepository {
 
   private List<StashPullRequestComment> filterIgnoredCommenters(
       List<StashPullRequestComment> comments) {
-    String ignoredCommenters = this.trigger.getIgnoredCommenters();
-    if (StringUtils.isEmpty(ignoredCommenters)) {
+    String jobIgnoredCommenters = this.trigger.getIgnoredCommenters();
+    String globalIgnoredCommenters = this.trigger.getGlobalIgnoredCommenters();
+
+    if (StringUtils.isEmpty(jobIgnoredCommenters) && StringUtils.isEmpty(globalIgnoredCommenters)) {
       return comments;
     }
 
     List<StashPullRequestComment> filtered = new ArrayList<>();
     for (StashPullRequestComment comment : comments) {
-      if (!isIgnoredCommenter(comment.getAuthorUsername(), ignoredCommenters)) {
+      String username = comment.getAuthorUsername();
+      if (!isIgnoredCommenter(username, jobIgnoredCommenters)
+          && !isIgnoredCommenter(username, globalIgnoredCommenters)) {
         filtered.add(comment);
       }
     }

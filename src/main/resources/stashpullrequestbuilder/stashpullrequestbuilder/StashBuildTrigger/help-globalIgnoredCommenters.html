@@ -1,0 +1,16 @@
+<div>
+  A Java regular expression to match against the username (slug) of comment authors.
+  Comments from users whose username matches this regex will be ignored and will not
+  trigger builds in any job. This is applied in addition to the per-job
+  "Ignore comments from users matching regex" setting; a comment must pass both
+  filters to be considered for triggering a build.
+  <p>
+  Leave empty to not ignore any users globally.
+  <p>
+  Examples:
+  <ul>
+    <li><code>bot-.*</code> &mdash; ignores comments from any user whose name starts with "bot-"</li>
+    <li><code>jenkins|bamboo</code> &mdash; ignores comments from users named "jenkins" or "bamboo"</li>
+    <li><code>.*-bot</code> &mdash; ignores comments from any user whose name ends with "-bot"</li>
+  </ul>
+</div>
